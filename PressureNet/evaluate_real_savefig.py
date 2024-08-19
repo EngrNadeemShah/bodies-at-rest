@@ -4,11 +4,11 @@ import numpy as np
 import random
 import copy
 
-import cPickle as pkl
+import pickle as pkl
 
 def load_pickle(filename):
     with open(filename, 'rb') as f:
-        return pickle.load(f)
+        return pickle.load(f, encoding='latin1')
 import sys
 sys.path.insert(0, '../lib_py')
 
@@ -25,7 +25,7 @@ from smpl.smpl_webuser.serialization import load_model as load_smpl_model
 
 def load_pickle(filename):
     with open(filename, 'rb') as f:
-        return pickle.load(f)
+        return pickle.load(f, encoding='latin1')
 
 # some_file.py
 
@@ -61,7 +61,7 @@ import torch
 import torch.nn as nn
 
 import tensorflow as tensorflow
-import cPickle as pickle
+import pickle as pickle
 VERT_CUT, HORIZ_CUT = 0, 50
 pre_VERT_CUT = 40
 
@@ -99,12 +99,12 @@ if False:#torch.cuda.is_available():
     # Use for GPU
     GPU = True
     dtype = torch.cuda.FloatTensor
-    print '######################### CUDA is available! #############################'
+    print('######################### CUDA is available! #############################')
 else:
     # Use for CPU
     GPU = False
     dtype = torch.FloatTensor
-    print '############################## USING CPU #################################'
+    print('############################## USING CPU #################################')
 
 
 class Viz3DPose():
@@ -119,7 +119,7 @@ class Viz3DPose():
         ##load participant info
         participant_info = load_pickle("/media/henry/multimodal_data_2/CVPR2020_study/"+PARTICIPANT+"/participant_info.p")
         for entry in participant_info:
-            print entry, participant_info[entry]
+            print(entry, participant_info[entry])
 
         self.gender = participant_info['gender']
         self.height_in = participant_info['height_in']
@@ -249,9 +249,9 @@ class Viz3DPose():
     def load_new_participant_info(self, participant_directory):
         ##load participant info
         participant_info = load_pickle(participant_directory+"/participant_info_red.p")
-        print "participant directory: ", participant_directory
+        print("participant directory: ", participant_directory)
         for entry in participant_info:
-            print entry, participant_info[entry]
+            print(entry, participant_info[entry])
 
         self.gender = participant_info['gender']
         self.height_in = participant_info['height_in']
@@ -321,7 +321,7 @@ class Viz3DPose():
 
     def load_next_file(self, newpath):
 
-        print "loading existing npy files in the new path...."
+        print("loading existing npy files in the new path....")
         time_orig = time.time()
         self.color_all = np.load(newpath+"/color.npy")
         self.depth_r_all = np.load(newpath+"/depth_r.npy")
@@ -331,7 +331,7 @@ class Viz3DPose():
         self.time_stamp_all = np.load(newpath+"/time_stamp.npy")
         self.point_cloud_autofil_all = np.load(newpath+"/point_cloud.npy")
         #self.config_code_all = np.load(newpath+"/config_code.npy")
-        print "Finished. Time taken: ", time.time() - time_orig
+        print("Finished. Time taken: ", time.time() - time_orig)
 
 
 
@@ -559,7 +559,7 @@ class Viz3DPose():
             pmat_stack = np.clip(pmat_stack, a_min=0, a_max=100)
 
         pmat_stack = np.expand_dims(np.array(pmat_stack), 0)
-        print pmat_stack.shape
+        print(pmat_stack.shape)
 
         if self.CTRL_PNL['incl_pmat_cntct_input'] == True:
             pmat_contact = np.copy(pmat_stack[:, 0:1, :, :])
@@ -622,7 +622,7 @@ class Viz3DPose():
         # print sc_sample1
 
         if model2 is not None:
-            print "Using model 2"
+            print("Using model 2")
             batch_cor = []
 
             if self.CTRL_PNL['cal_noise'] == False:
@@ -659,7 +659,7 @@ class Viz3DPose():
                 self.CTRL_PNL['num_input_channels_batch0'] += 3
 
 
-            print self.CTRL_PNL['num_input_channels_batch0'], batch_cor[0].size()
+            print(self.CTRL_PNL['num_input_channels_batch0'], batch_cor[0].size())
 
             scores, INPUT_DICT, OUTPUT_DICT = UnpackBatchLib().unpack_batch(batch_cor, is_training=False, model=model2,
                                                                                         CTRL_PNL = self.CTRL_PNL)
@@ -876,7 +876,7 @@ class Viz3DPose():
 
                 #For P188: skip 5. 13 good cross legs
 
-                print "NEXT IM!", im_num, " ", time.time() - init_time
+                print("NEXT IM!", im_num, " ", time.time() - init_time)
 
                 if PARTICIPANT == "S114" and POSE_TYPE == "2"  and im_num in [26, 29]: continue #these don't have point clouds
                 if PARTICIPANT == "S165" and POSE_TYPE == "2" and im_num in [1, 3, 15]: continue #these don't have point clouds
@@ -1173,8 +1173,8 @@ if __name__ ==  "__main__":
             dat = load_pickle(participant_directory+"/p_select.p")
             POSE_TYPE = "1"
         else:
-            print "Please choose a pose type - either prescribed poses, " \
-                  "'--pose_type prescribed', or participant selected poses, '--pose_type p_select'."
+            print("Please choose a pose type - either prescribed poses, " \
+                  "'--pose_type prescribed', or participant selected poses, '--pose_type p_select'.")
             sys.exit()
 
 

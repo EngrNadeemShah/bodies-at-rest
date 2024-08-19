@@ -29,13 +29,13 @@ import convnet as convnet
 # import tf.transformations as tft
 
 # import hrl_lib.util as ut
-import cPickle as pickle
+import pickle as pickle
 
 
 # from hrl_lib.util import load_pickle
 def load_pickle(filename):
     with open(filename, 'rb') as f:
-        return pickle.load(f)
+        return pickle.load(f, encoding='latin1')
 
 
 # Pose Estimation Libraries
@@ -44,7 +44,7 @@ from preprocessing_lib_br import PreprocessingLib
 from tensorprep_lib_br import TensorPrepLib
 from unpack_batch_lib_br import UnpackBatchLib
 
-import cPickle as pkl
+import pickle as pkl
 import random
 from scipy import ndimage
 import scipy.stats as ss
@@ -74,12 +74,12 @@ if False:#torch.cuda.is_available():
     GPU = True
     dtype = torch.cuda.FloatTensor
     torch.cuda.set_device(DEVICE)
-    print '######################### CUDA is available! #############################'
+    print('######################### CUDA is available! #############################')
 else:
     # Use for CPU
     GPU = False
     dtype = torch.FloatTensor
-    print '############################## USING CPU #################################'
+    print('############################## USING CPU #################################')
 
 
 class PhysicalTrainer():
@@ -185,7 +185,7 @@ class PhysicalTrainer():
         else:
             self.verts_list = [1325, 336, 1032, 4515, 1374, 4848, 1739, 5209, 1960, 5423]
 
-        print self.CTRL_PNL['num_epochs'], 'NUM EPOCHS!'
+        print(self.CTRL_PNL['num_epochs'], 'NUM EPOCHS!')
         # Entire pressure dataset with coordinates in world frame
 
 
@@ -229,7 +229,7 @@ class PhysicalTrainer():
         else:
             self.depth_contact_maps_input_est = None
 
-        print np.shape(self.test_x_flat)
+        print(np.shape(self.test_x_flat))
 
         test_xa = PreprocessingLib().preprocessing_create_pressure_angle_stack(self.test_x_flat,
                                                                                 self.mat_size,
@@ -275,8 +275,8 @@ class PhysicalTrainer():
         self.test_y_tensor = torch.Tensor(test_y_flat)
 
 
-        print self.test_x_tensor.shape, 'Input testing tensor shape'
-        print self.test_y_tensor.shape, 'Output testing tensor shape'
+        print(self.test_x_tensor.shape, 'Input testing tensor shape')
+        print(self.test_y_tensor.shape, 'Output testing tensor shape')
 
 
 
@@ -284,10 +284,10 @@ class PhysicalTrainer():
 
     def init_convnet_test(self):
 
-        print self.test_x_tensor.size(), self.test_y_tensor.size()
+        print(self.test_x_tensor.size(), self.test_y_tensor.size())
         #self.test_x_tensor = self.test_x_tensor[476:, :, :, :]
         #self.test_y_tensor = self.test_y_tensor[476:, :]
-        print self.test_x_tensor.size(), self.test_y_tensor.size()
+        print(self.test_x_tensor.size(), self.test_y_tensor.size())
 
         #self.test_x_tensor = self.test_x_tensor.unsqueeze(1)
         self.test_dataset = torch.utils.data.TensorDataset(self.test_x_tensor, self.test_y_tensor)
@@ -316,7 +316,7 @@ class PhysicalTrainer():
             for s in list(p.size()):
                 nn = nn * s
             pp += nn
-        print 'LOADED. num params: ', pp
+        print('LOADED. num params: ', pp)
 
 
         # Run model on GPU if available
@@ -359,7 +359,7 @@ class PhysicalTrainer():
             # This will loop a total = testing_images/batch_size times
             for batch_idx, batch in enumerate(self.test_loader):
                 if GPU == True:
-                    print "GPU memory:", torch.cuda.max_memory_allocated()
+                    print("GPU memory:", torch.cuda.max_memory_allocated())
 
 
                 #print torch.cuda.max_memory_allocated(), '1pre test'
@@ -438,7 +438,7 @@ class PhysicalTrainer():
                     elif smpl_model == 'network_output2':
                         root_shift = root_shift_est
 
-                    print root_shift, 'root shift'
+                    print(root_shift, 'root shift')
                     # get SMPL mesh
                     smpl_verts = (self.m.r - self.m.J_transformed[0, :]) + [root_shift[1] - 0.286 + 0.15,
                                                                             root_shift[0] - 0.286,
@@ -451,7 +451,7 @@ class PhysicalTrainer():
 
                 bedangle=0
 
-                print INPUT_DICT['batch_images'].shape
+                print(INPUT_DICT['batch_images'].shape)
 
                 # render in 3D pyrender with pressure mat
                 viz_type = "leg_correction"
@@ -472,7 +472,7 @@ class PhysicalTrainer():
                     ims_to_display.append(INPUT_DICT['batch_mdm'].data.numpy().reshape(64, 27)*-1) #Q-, GT
                     segment_limbs = True
 
-                print np.shape(ims_to_display[-1])
+                print(np.shape(ims_to_display[-1]))
 
                 self.pyRender.render_mesh_bed_special(smpl_verts_both, smpl_faces, bedangle,
                                                           pmats=ims_to_display, viz_type=viz_type,
@@ -535,7 +535,7 @@ class PhysicalTrainer():
                 self.CTRL_PNL['adjust_ang_from_est'] = False
                 self.CTRL_PNL['depth_map_labels'] = False
 
-                print self.CTRL_PNL['num_input_channels_batch0'], batch[0].size()
+                print(self.CTRL_PNL['num_input_channels_batch0'], batch[0].size())
 
                 self.CTRL_PNL['align_procr'] = False
                 scores, INPUT_DICT, OUTPUT_DICT = UnpackBatchLib().unpack_batch(batch, False, self.model,
@@ -558,7 +558,7 @@ class PhysicalTrainer():
                 # print sc_sample1
 
                 if self.model2 is not None:
-                    print "Using model 2"
+                    print("Using model 2")
                     batch_cor = []
 
                     if self.CTRL_PNL['cal_noise'] == False:
@@ -593,7 +593,7 @@ class PhysicalTrainer():
                     if self.opt.pmr == True:
                         self.CTRL_PNL['num_input_channels_batch0'] += 3
 
-                    print self.CTRL_PNL['num_input_channels_batch0'], batch_cor[0].size()
+                    print(self.CTRL_PNL['num_input_channels_batch0'], batch_cor[0].size())
                     self.CTRL_PNL['align_procr'] = self.opt.align_procr
 
                     scores, INPUT_DICT, OUTPUT_DICT = UnpackBatchLib().unpack_batch(batch_cor, is_training=False,
@@ -634,7 +634,7 @@ class PhysicalTrainer():
                 # print smpl_verts
 
                 RESULTS_DICT['betas'].append(OUTPUT_DICT['batch_betas_est_post_clip'].cpu().numpy()[0])
-                print RESULTS_DICT['betas'][-1], "BETAS"
+                print(RESULTS_DICT['betas'][-1], "BETAS")
 
                 viz_dim = self.opt.viz_dim
 
@@ -715,10 +715,10 @@ class PhysicalTrainer():
                 #time.sleep(300)
 
                 #print RESULTS_DICT['j_err']
-                print np.mean(np.array(RESULTS_DICT['j_err']), axis = 0)
+                print(np.mean(np.array(RESULTS_DICT['j_err']), axis = 0))
                 #print RESULTS_DICT['precision']
-                print np.mean(RESULTS_DICT['precision'])
-                print time.time() - init_time
+                print(np.mean(RESULTS_DICT['precision']))
+                print(time.time() - init_time)
                 #break
 
         #save here
@@ -732,7 +732,7 @@ class PhysicalTrainer():
 
 
 if __name__ == "__main__":
-    print "Got here"
+    print("Got here")
 
     import optparse
 

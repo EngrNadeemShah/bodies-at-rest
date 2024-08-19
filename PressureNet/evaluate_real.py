@@ -9,11 +9,11 @@ import numpy as np
 import random
 import copy
 
-import cPickle as pkl
+import pickle as pkl
 
 def load_pickle(filename):
     with open(filename, 'rb') as f:
-        return pickle.load(f)
+        return pickle.load(f, encoding='latin1')
 import sys
 sys.path.insert(0, '../lib_py')
 
@@ -51,7 +51,7 @@ from random import shuffle
 import torch
 import torch.nn as nn
 
-import cPickle as pickle
+import pickle as pickle
 VERT_CUT, HORIZ_CUT = 0, 50
 pre_VERT_CUT = 40
 DROPOUT = False
@@ -72,12 +72,12 @@ if torch.cuda.is_available():
     GPU = True
     dtype = torch.cuda.FloatTensor
     torch.cuda.set_device(DEVICE)
-    print '######################### CUDA is available! #############################'
+    print('######################### CUDA is available! #############################')
 else:
     # Use for CPU
     GPU = False
     dtype = torch.FloatTensor
-    print '############################## USING CPU #################################'
+    print('############################## USING CPU #################################')
 
 
 class Viz3DPose():
@@ -92,7 +92,7 @@ class Viz3DPose():
         ##load participant info
         participant_info = load_pickle(FILEPATH_PREFIX+"/real/"+PARTICIPANT+"/participant_info_red.p")
         for entry in participant_info:
-            print entry, participant_info[entry]
+            print(entry, participant_info[entry])
 
         self.gender = participant_info['gender']
         self.height_in = participant_info['height_in']
@@ -217,9 +217,9 @@ class Viz3DPose():
     def load_new_participant_info(self, participant_directory):
         ##load participant info
         participant_info = load_pickle(participant_directory+"/participant_info_red.p")
-        print "participant directory: ", participant_directory
+        print("participant directory: ", participant_directory)
         for entry in participant_info:
-            print entry, participant_info[entry]
+            print(entry, participant_info[entry])
 
         self.gender = participant_info['gender']
         self.height_in = participant_info['height_in']
@@ -296,7 +296,7 @@ class Viz3DPose():
 
             pmat_corners = dat['pmat_corners'][im_num]
             rgb = dat['RGB'][im_num]
-            print "Pose type: ", dat['pose_type'][im_num]
+            print("Pose type: ", dat['pose_type'][im_num])
 
             rgb[int(pmat_corners[0][1]+0.5)-2:int(pmat_corners[0][1]+0.5)+2, \
                 int(pmat_corners[0][0]+0.5)-2:int(pmat_corners[0][0]+0.5)+2, :] = 0
@@ -365,7 +365,7 @@ class Viz3DPose():
             pmat_stack = np.clip(pmat_stack, a_min=0, a_max=100)
 
         pmat_stack = np.expand_dims(np.array(pmat_stack), 0)
-        print pmat_stack.shape
+        print(pmat_stack.shape)
 
         if self.CTRL_PNL['incl_pmat_cntct_input'] == True:
             pmat_contact = np.copy(pmat_stack[:, 0:1, :, :])
@@ -425,7 +425,7 @@ class Viz3DPose():
         # print sc_sample1
 
         if model2 is not None:
-            print "Using model 2"
+            print("Using model 2")
             batch_cor = []
 
             if self.CTRL_PNL['cal_noise'] == False:
@@ -462,7 +462,7 @@ class Viz3DPose():
                 self.CTRL_PNL['num_input_channels_batch0'] += 3
 
 
-            print self.CTRL_PNL['num_input_channels_batch0'], batch_cor[0].size()
+            print(self.CTRL_PNL['num_input_channels_batch0'], batch_cor[0].size())
 
             scores, INPUT_DICT, OUTPUT_DICT = UnpackBatchLib().unpack_batch(batch_cor, is_training=False, model=model2,
                                                                                         CTRL_PNL = self.CTRL_PNL)
@@ -549,9 +549,9 @@ class Viz3DPose():
 
         elif viz_type == "3D":
 
-            print np.min(smpl_verts[:, 0]), np.max(smpl_verts[:, 0])
-            print np.min(smpl_verts[:, 1]), np.max(smpl_verts[:, 1])
-            print np.min(smpl_verts[:, 2]), np.max(smpl_verts[:, 2])
+            print(np.min(smpl_verts[:, 0]), np.max(smpl_verts[:, 0]))
+            print(np.min(smpl_verts[:, 1]), np.max(smpl_verts[:, 1]))
+            print(np.min(smpl_verts[:, 2]), np.max(smpl_verts[:, 2]))
 
             # render everything
             self.RESULTS_DICT = self.pyRender.render_mesh_pc_bed_pyrender_everything(smpl_verts, smpl_faces,
@@ -670,8 +670,8 @@ if __name__ ==  "__main__":
             dat = load_pickle(participant_directory+"/p_select.p")
             POSE_TYPE = "1"
         else:
-            print "Please choose a pose type - either prescribed poses, " \
-                  "'--pose_type prescribed', or participant selected poses, '--pose_type p_select'."
+            print("Please choose a pose type - either prescribed poses, " \
+                  "'--pose_type prescribed', or participant selected poses, '--pose_type p_select'.")
             sys.exit()
 
 
@@ -732,7 +732,7 @@ if __name__ ==  "__main__":
                 try:
                     model = torch.load(filename1, map_location={'cuda:' + str(i): 'cuda:0'})
                     model = model.cuda().eval()
-                    print "Network 1 loaded."
+                    print("Network 1 loaded.")
                     break
                 except:
                     pass
@@ -741,7 +741,7 @@ if __name__ ==  "__main__":
                     try:
                         model2 = torch.load(filename2, map_location={'cuda:' + str(i): 'cuda:0'})
                         model2 = model2.cuda().eval()
-                        print "Network 2 loaded."
+                        print("Network 2 loaded.")
                         break
                     except:
                         pass
@@ -750,11 +750,11 @@ if __name__ ==  "__main__":
         else:
             model = torch.load(filename1, map_location='cpu')
             model = model.eval()
-            print "Network 1 loaded."
+            print("Network 1 loaded.")
             if filename2 is not None:
                 model2 = torch.load(filename2, map_location='cpu')
                 model2 = model2.eval()
-                print "Network 2 loaded."
+                print("Network 2 loaded.")
             else:
                 model2 = None
 

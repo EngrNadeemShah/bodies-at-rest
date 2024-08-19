@@ -34,7 +34,7 @@ class CNN(nn.Module):
         #############################################################################
         #print mat_size
         self.loss_vector_type = loss_vector_type
-        print '$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$'
+        print('$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$')
 
         self.count = 0
 
@@ -117,7 +117,7 @@ class CNN(nn.Module):
             nn.Linear(67200*2, out_size), #89600, out_size),
         )
 
-        print 'Out size:', out_size
+        print('Out size:', out_size)
 
         if torch.cuda.is_available():
             self.GPU = True
@@ -148,7 +148,7 @@ class CNN(nn.Module):
                 images = torch.cat((images[:, 1:CTRL_PNL['num_input_channels_batch0']-1, :, :], images[:, CTRL_PNL['num_input_channels_batch0']:, :, :]), dim = 1)
 
 
-        print "ConvNet input size: ", images.size()
+        print("ConvNet input size: ", images.size())
 
         reg_angles = CTRL_PNL['regr_angles']
 
@@ -308,7 +308,7 @@ class CNN(nn.Module):
 
 
             if CTRL_PNL['align_procr'] == True:
-                print "aligning procrustes"
+                print("aligning procrustes")
                 root_shift_est = root_shift
                 scores[:, 13+OSA:16+OSA] = angles_gt[:, 0:3].clone()
 

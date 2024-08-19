@@ -21,13 +21,13 @@ import convnet_br as convnet
 # import tf.transformations as tft
 
 # import hrl_lib.util as ut
-import cPickle as pickle
+import pickle as pickle
 
 
 # from hrl_lib.util import load_pickle
 def load_pickle(filename):
     with open(filename, 'rb') as f:
-        return pickle.load(f)
+        return pickle.load(f, encoding='latin1')
 
 
 import sys
@@ -39,12 +39,12 @@ from preprocessing_lib_br import PreprocessingLib
 from tensorprep_lib_br import TensorPrepLib
 from unpack_batch_lib_br import UnpackBatchLib
 
-import cPickle as pkl
+import pickle as pkl
 import random
 from scipy import ndimage
 import scipy.stats as ss
-from scipy.misc import imresize
-from scipy.ndimage.interpolation import zoom
+# from scipy.misc import imresize
+# from scipy.ndimage.interpolation import zoom
 
 np.set_printoptions(threshold=sys.maxsize)
 
@@ -63,12 +63,12 @@ if torch.cuda.is_available():
     # Use for GPU
     GPU = True
     dtype = torch.cuda.FloatTensor
-    print '######################### CUDA is available! #############################'
+    print('######################### CUDA is available! #############################')
 else:
     # Use for CPU
     GPU = False
     dtype = torch.FloatTensor
-    print '############################## USING CPU #################################'
+    print('############################## USING CPU #################################')
 
 
 class PhysicalTrainer():
@@ -253,8 +253,8 @@ class PhysicalTrainer():
 
         self.train_y_tensor = torch.Tensor(train_y_flat)
 
-        print self.train_x_tensor.shape, 'Input training tensor shape'
-        print self.train_y_tensor.shape, 'Output training tensor shape'
+        print(self.train_x_tensor.shape, 'Input training tensor shape')
+        print(self.train_y_tensor.shape, 'Output training tensor shape')
 
 
 
@@ -291,7 +291,7 @@ class PhysicalTrainer():
         else:
             self.depth_contact_maps_input_est = None
 
-        print np.shape(self.test_x_flat)
+        print(np.shape(self.test_x_flat))
 
         test_xa = PreprocessingLib().preprocessing_create_pressure_angle_stack(self.test_x_flat,
                                                                                 self.mat_size,
@@ -337,8 +337,8 @@ class PhysicalTrainer():
         self.test_y_tensor = torch.Tensor(test_y_flat)
 
 
-        print self.test_x_tensor.shape, 'Input testing tensor shape'
-        print self.test_y_tensor.shape, 'Output testing tensor shape'
+        print(self.test_x_tensor.shape, 'Input testing tensor shape')
+        print(self.test_y_tensor.shape, 'Output testing tensor shape')
 
 
 
@@ -373,7 +373,7 @@ class PhysicalTrainer():
         if  self.opt.half_shape_wt == True:
             self.save_name += '_hsw'
 
-        print 'appending to', 'train' + self.save_name
+        print('appending to', 'train' + self.save_name)
         self.train_val_losses = {}
         self.train_val_losses['train_loss'] = []
         self.train_val_losses['val_loss'] = []
@@ -393,7 +393,7 @@ class PhysicalTrainer():
 
 
 
-        print "Loading convnet model................................"
+        print("Loading convnet model................................")
 
         fc_output_size = 85## 10 + 3 + 24*3 --- betas, root shift, rotations
 
@@ -424,7 +424,7 @@ class PhysicalTrainer():
             for s in list(p.size()):
                 nn = nn * s
             pp += nn
-        print 'LOADED. num params: ', pp
+        print('LOADED. num params: ', pp)
 
 
         # Run model on GPU if available
@@ -446,7 +446,7 @@ class PhysicalTrainer():
                 self.t2 = time.time() - self.t1
             except:
                 self.t2 = 0
-            print 'Time taken by epoch',epoch,':',self.t2,' seconds'
+            print('Time taken by epoch',epoch,':',self.t2,' seconds')
 
             if epoch == self.CTRL_PNL['num_epochs'] or epoch == 10 or epoch == 20 or epoch == 30 or epoch == 40 or epoch == 50 or epoch == 60 or epoch == 70 or epoch == 80 or epoch == 90:
 
@@ -455,13 +455,13 @@ class PhysicalTrainer():
                 else:
                     epoch_log = epoch + 0
 
-                print "saving convnet."
+                print("saving convnet.")
                 torch.save(self.model, self.CTRL_PNL['convnet_fp_prefix']+'convnet'+self.save_name+'_'+str(epoch_log)+'e'+'_'+str(learning_rate)+'lr.pt')
-                print "saved convnet."
+                print("saved convnet.")
                 pkl.dump(self.train_val_losses,open(self.CTRL_PNL['convnet_fp_prefix']+'convnet_losses'+self.save_name+'_'+str(epoch_log)+'e'+'_'+str(learning_rate)+'lr.p', 'wb'))
-                print "saved losses."
+                print("saved losses.")
 
-        print self.train_val_losses, 'trainval'
+        print(self.train_val_losses, 'trainval')
         # Save the model (architecture and weights)
 
 
@@ -541,10 +541,10 @@ class PhysicalTrainer():
                 if batch_idx % opt.log_interval == 0:# and batch_idx > 0:
 
                     if GPU == True:
-                        print "GPU memory:", torch.cuda.max_memory_allocated()
+                        print("GPU memory:", torch.cuda.max_memory_allocated())
 
                     val_n_batches = 4
-                    print "evaluating on ", val_n_batches
+                    print("evaluating on ", val_n_batches)
 
                     im_display_idx = 0 #random.randint(0,INPUT_DICT['batch_images'].size()[0])
 
@@ -642,10 +642,10 @@ class PhysicalTrainer():
                     print_text = ''
                     for item in print_text_list:
                         print_text += item
-                    print(print_text.format(*print_vals_list))
+                    print((print_text.format(*print_vals_list)))
 
 
-                    print 'appending to alldata losses'
+                    print('appending to alldata losses')
                     self.train_val_losses['train_loss'].append(train_loss)
                     self.train_val_losses['epoch_ct'].append(epoch)
                     self.train_val_losses['val_loss'].append(val_loss)
@@ -839,7 +839,7 @@ if __name__ == "__main__":
         data_fp_suffix = ''
 
     else:
-        print "Please choose a valid network. You can specify '--net 1' or '--net 2'."
+        print("Please choose a valid network. You can specify '--net 1' or '--net 2'.")
         sys.exit()
 
     training_database_file_f = []

@@ -8,7 +8,7 @@
 try:
     import open3d as o3d
 except:
-    print "CANNOT IMPORT 03D. POINT CLOUD PROCESSING WON'T WORK"
+    print("CANNOT IMPORT 03D. POINT CLOUD PROCESSING WON'T WORK")
 
 import trimesh
 import pyrender
@@ -26,10 +26,10 @@ from random import shuffle
 import time as time
 import matplotlib.cm as cm #use cm.jet(list)
 
-import cPickle as pickle
+import pickle as pickle
 def load_pickle(filename):
     with open(filename, 'rb') as f:
-        return pickle.load(f)
+        return pickle.load(f, encoding='latin1')
 
 
 

@@ -6,12 +6,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.pylab import *
 
-import cPickle as pkl
+import pickle as pkl
 import random
 from scipy import ndimage
 import scipy.stats as ss
-from scipy.misc import imresize
-from scipy.ndimage.interpolation import zoom
+# from scipy.misc import imresize
+# from scipy.ndimage.interpolation import zoom
 
 import sys
 sys.path.append(os.path.abspath('..'))
@@ -36,11 +36,11 @@ INTER_SENSOR_DISTANCE = 0.0286#metres
 
 
 # import hrl_lib.util as ut
-import cPickle as pickle
+import pickle as pickle
 # from hrl_lib.util import load_pickle
 def load_pickle(filename):
     with open(filename, 'rb') as f:
-        return pickle.load(f)
+        return pickle.load(f, encoding='latin1')
 
 
 class MeshDepthLib():
@@ -63,8 +63,8 @@ class MeshDepthLib():
         self.dtypeInt = dtypeInt
         self.loss_vector_type = loss_vector_type
 
-        print self.loss_vector_type
-        print verts_list, "VERTS LIST"
+        print(self.loss_vector_type)
+        print(verts_list, "VERTS LIST")
         if self.loss_vector_type == 'anglesDC':
             self.bounds = torch.Tensor(
                 np.array([[-0.5933865286111969, 0.5933865286111969], [-2*np.pi, 2*np.pi], [-1.215762200416361, 1.215762200416361],
@@ -265,7 +265,7 @@ class MeshDepthLib():
                 self.shapedirs_f = torch.Tensor(np.array(human_f.shapedirs)).permute(0, 2, 1).type(dtype)
                 self.J_regressor_f = np.zeros((human_f.J_regressor.shape)) + human_f.J_regressor
                 self.J_regressor_f = torch.Tensor(np.array(self.J_regressor_f).astype(float)).permute(1, 0).type(dtype)
-                print verts_list[0], verts_list[1]
+                print(verts_list[0], verts_list[1])
                 self.posedirs_f = torch.Tensor(np.stack([human_f.posedirs[verts_list[0], :, :],
                                                          human_f.posedirs[verts_list[1], :, :],
                                                          human_f.posedirs[verts_list[2], :, :],
@@ -486,7 +486,7 @@ class MeshDepthLib():
 
         #3print self.filler_taxels.shape, 'filler shape'
         if get_mesh_bottom_dist == False:
-            print "GETTING THE TOP MESH DIST"
+            print("GETTING THE TOP MESH DIST")
             verts_taxel_int[:, :, 2] *= -1
 
         verts_taxel_int = torch.cat((self.filler_taxels[0:cbs, :, :], verts_taxel_int), dim=1)
