@@ -83,6 +83,7 @@ class PhysicalTrainer():
 
 
         self.CTRL_PNL = {}
+        self.CTRL_PNL['align_procr'] = False
         self.CTRL_PNL['loss_vector_type'] = opt.losstype
         self.CTRL_PNL['verbose'] = opt.verbose
         self.opt = opt
