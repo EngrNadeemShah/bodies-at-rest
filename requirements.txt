@@ -6,7 +6,7 @@ torch
 torchvision
 chumpy
 opencv-python
-sklearn
+scikit-learn # sklearn
 open3d-python
 imutils
 camera
