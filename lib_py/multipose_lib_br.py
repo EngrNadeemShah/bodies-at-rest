@@ -595,7 +595,7 @@ class VizLib():
             pressure_reshaped[int(low_vert) + pressure_im_size_required[1]-10:int(low_vert) + pressure_im_size_required[1]+1, head_bend_loc-pressure_im_size_required[0]*HEAD_BEND_TAXEL/64-1:head_bend_loc-pressure_im_size_required[0]*HEAD_BEND_TAXEL/64+1, :] = 255
 
             coords_from_top_left = [low_vert, head_bend_loc-pressure_im_size_required[0]*HEAD_BEND_TAXEL/64]
-            print "CORNER VERTS", int(low_vert), 960 - (head_bend_loc - pressure_im_size_required[0] * HEAD_BEND_TAXEL / 64)
+            print("CORNER VERTS", int(low_vert), 960 - (head_bend_loc - pressure_im_size_required[0] * HEAD_BEND_TAXEL / 64))
 
 
             #Add in some markings for where the flat bed would be: primary bend of the legs

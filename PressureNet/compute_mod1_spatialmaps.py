@@ -21,7 +21,7 @@ import convnet as convnet
 import tf.transformations as tft
 
 # import hrl_lib.util as ut
-import cPickle as pickle
+import pickle as pickle
 # from hrl_lib.util import load_pickle
 def load_pickle(filename):
     with open(filename, 'rb') as f:
@@ -37,7 +37,7 @@ from tensorprep_lib_br import TensorPrepLib
 from unpack_batch_lib_br import UnpackBatchLib
 
 
-import cPickle as pkl
+import pickle as pkl
 import random
 from scipy import ndimage
 import scipy.stats as ss
@@ -68,12 +68,12 @@ if torch.cuda.is_available():
     # Use for GPU
     GPU = True
     dtype = torch.cuda.FloatTensor
-    print'######################### CUDA is available! #############################'
+    print('######################### CUDA is available! #############################')
 else:
     # Use for CPU
     GPU = False
     dtype = torch.FloatTensor
-    print'############################## USING CPU #################################'
+    print('############################## USING CPU #################################')
 
 
 class PhysicalTrainer():
@@ -239,7 +239,7 @@ class PhysicalTrainer():
         else:
             self.depth_contact_maps_input_est = None
 
-        print np.shape(self.test_x_flat)
+        print(np.shape(self.test_x_flat))
 
         test_xa = PreprocessingLib().preprocessing_create_pressure_angle_stack(self.test_x_flat,
                                                                                 self.mat_size,
@@ -285,15 +285,15 @@ class PhysicalTrainer():
         self.test_y_tensor = torch.Tensor(test_y_flat)
 
 
-        print self.test_x_tensor.shape, 'Input testing tensor shape'
-        print self.test_y_tensor.shape, 'Output testing tensor shape'
+        print(self.test_x_tensor.shape, 'Input testing tensor shape')
+        print(self.test_y_tensor.shape, 'Output testing tensor shape')
 
 
 
     def init_convnet_test(self):
 
-        if self.CTRL_PNL['verbose']: print self.test_x_tensor.size(), 'length of the testing dataset'
-        if self.CTRL_PNL['verbose']: print self.test_y_tensor.size(), 'size of the testing database output'
+        if self.CTRL_PNL['verbose']: print(self.test_x_tensor.size(), 'length of the testing dataset')
+        if self.CTRL_PNL['verbose']: print(self.test_y_tensor.size(), 'size of the testing database output')
 
 
         #self.test_x_tensor = self.test_x_tensor.unsqueeze(1)
@@ -324,7 +324,7 @@ class PhysicalTrainer():
 
 
 
-        print 'Loaded ConvNet.'
+        print('Loaded ConvNet.')
 
         self.validate_convnet('test')
 
@@ -363,7 +363,7 @@ class PhysicalTrainer():
 
 
 
-            print OUTPUT_DICT['batch_angles_est'].shape, n_examples
+            print(OUTPUT_DICT['batch_angles_est'].shape, n_examples)
             for item in range(OUTPUT_DICT['batch_angles_est'].shape[0]):
                 self.dat['mdm_est'].append(OUTPUT_DICT['batch_mdm_est'][item].cpu().numpy().astype(float32))
                 self.dat['cm_est'].append(OUTPUT_DICT['batch_cm_est'][item].cpu().numpy().astype(int16))
@@ -389,8 +389,8 @@ class PhysicalTrainer():
                 targets_est_print = torch.mean(OUTPUT_DICT['batch_targets_est'], dim = 0).unsqueeze(0)
 
 
-            print targets_print.shape, INPUT_DICT['batch_targets'].shape
-            print targets_est_print.shape, OUTPUT_DICT['batch_targets_est'].shape
+            print(targets_print.shape, INPUT_DICT['batch_targets'].shape)
+            print(targets_est_print.shape, OUTPUT_DICT['batch_targets_est'].shape)
 
 
             if GPU == True:
@@ -407,9 +407,9 @@ class PhysicalTrainer():
                                                                                    data='validate')
 
             for item in self.dat:
-                print item, len(self.dat[item])
+                print(item, len(self.dat[item]))
 
-        print self.filename
+        print(self.filename)
 
         #pkl.dump(self.dat,open('/media/henry/multimodal_data_2/'+self.filename+'_output0p7.p', 'wb'))
         pkl.dump(self.dat,open('../'+self.filename+'_'+self.model_name+'.p', 'wb'))
@@ -531,7 +531,7 @@ if __name__ == "__main__":
 
         p = PhysicalTrainer(test_database_file_f, test_database_file_m, opt, filename)
 
-        print "GOT HERE!"
+        print("GOT HERE!")
         p.init_convnet_test()
         #p.visualize_3d_data()
 
@@ -543,6 +543,6 @@ if __name__ == "__main__":
 
         p = PhysicalTrainer(test_database_file_f, test_database_file_m, opt, filename)
 
-        print "GOT HERE!"
+        print("GOT HERE!")
         p.init_convnet_test()
         #p.visualize_3d_data()

@@ -2,7 +2,7 @@
 try:
     import open3d as o3d
 except:
-    print "COULD NOT IMPORT 03D"
+    print("COULD NOT IMPORT 03D")
 import trimesh
 import pyrender
 import pyglet
@@ -30,7 +30,7 @@ import torch
 import torch.nn as nn
 
 import tensorflow as tensorflow
-import cPickle as pickle
+import pickle as pickle
 
 
 #IKPY
@@ -46,7 +46,7 @@ import matplotlib.cm as cm #use cm.jet(list)
 #hmr
 from hmr.src.tf_smpl.batch_smpl import SMPL
 
-import cPickle as pkl
+import pickle as pkl
 
 def load_pickle(filename):
     with open(filename, 'rb') as f:
@@ -250,7 +250,7 @@ class pyRenderMesh():
 
         top_smpl_vert = np.max(smpl_verts[:, 0])
         extend_top_bottom  = np.max([np.max(smpl_verts[:, 0]), 64*.0286]) - 64*.0286
-        print extend_top_bottom, 'extend top bot'
+        print(extend_top_bottom, 'extend top bot')
 
 
         shift_both_amount = np.max([0.9, np.max(smpl_verts[:, 1])]) #if smpl is bigger than 0.9 shift less
@@ -310,12 +310,12 @@ class pyRenderMesh():
 
 
 
-        print np.shape(color_im)
-        print tf_corners
+        print(np.shape(color_im))
+        print(tf_corners)
         top_idx = float(tf_corners[0,1])
         bot_idx = float(tf_corners[2,1])
         perc_total = (bot_idx-top_idx)/880.
-        print perc_total
+        print(perc_total)
 
         fig = plt.figure()
         if self.render == True:
@@ -333,7 +333,7 @@ class pyRenderMesh():
                     else:
                         #print marker - markers[2]
                         if marker is markers[2]:
-                            print "is markers 2", marker
+                            print("is markers 2", marker)
                             #artag_tm = trimesh.base.Trimesh(vertices=self.artag_r, faces=self.artag_f, face_colors = self.artag_facecolors_root)
                             #artag_meshes.append(pyrender.Mesh.from_trimesh(artag_tm, smooth = False))
                         else:
@@ -522,17 +522,17 @@ class pyRenderMesh():
         plt.axis('off')
 
         if 880.-bot_idx > top_idx:
-            print 'shift im down by', 880.-bot_idx - top_idx
+            print('shift im down by', 880.-bot_idx - top_idx)
             downshift = int((880.-bot_idx)/2 - top_idx/2 + 0.5)
             color_im[downshift:880] = color_im[0:880 - downshift]
 
         elif top_idx > (880. - bot_idx):
-            print 'shift im up by', top_idx - (880.-bot_idx)
+            print('shift im up by', top_idx - (880.-bot_idx))
             upshift = int(top_idx/2 - (880.-bot_idx)/2 + 0.5)
             color_im[0:880-upshift]= color_im[upshift:880]
 
-        print tf_corners
-        print np.shape(color_render), np.shape(color_im)
+        print(tf_corners)
+        print(np.shape(color_render), np.shape(color_im))
         color_im = np.concatenate((color_im[:, :, 2:3], color_im[:, :, 1:2], color_im[:, :, 0:1] ), axis = 2)
         color_im = color_im[:, int(tf_corners[0,0]-10):int(tf_corners[1,0]+10), :]
 
@@ -554,7 +554,7 @@ class pyRenderMesh():
 
         save_name = participant+'_'+current_pose_type_ct
 
-        print "saving!"
+        print("saving!")
         fig.savefig('/media/henry/multimodal_data_2/CVPR2020_study/'+participant+'/estimated_poses_camready/'+save_name+'_v2.png', dpi=300)
         #fig.savefig('/media/henry/multimodal_data_2/CVPR2020_study/'+participant+'/natural_est_poses/'+save_name+'.png', dpi=300)
         #fig.savefig('/media/henry/multimodal_data_2/CVPR2020_study/TEST.png', dpi=300)
@@ -591,7 +591,7 @@ class pyRenderMesh():
 
         top_smpl_vert = np.max(smpl_verts[:, 0])
         extend_top_bottom  = np.max([np.max(smpl_verts[:, 0]), 64*.0286]) - 64*.0286
-        print extend_top_bottom, 'extend top bot'
+        print(extend_top_bottom, 'extend top bot')
 
 
         shift_both_amount = np.max([0.9, np.max(smpl_verts[:, 1])]) #if smpl is bigger than 0.9 shift less
@@ -899,7 +899,7 @@ class pyRenderMesh():
             #save_name = 'f_hbh_'+'{:04}'.format(self.pic_num)
 
 
-            print "saving!"
+            print("saving!")
             fig.savefig('/media/henry/multimodal_data_2/CVPR2020_study/'+save_name+'_v2.png', dpi=300)
 
 

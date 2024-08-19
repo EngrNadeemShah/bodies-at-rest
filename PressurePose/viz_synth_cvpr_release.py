@@ -24,7 +24,7 @@ from torchvision import transforms
 from torch.autograd import Variable
 from smpl.smpl_webuser.serialization import load_model
 
-import cPickle as pickle
+import pickle as pickle
 
 
 def load_pickle(filename):
@@ -41,7 +41,7 @@ sys.path.insert(0, '../lib_py')
 from preprocessing_lib_br import PreprocessingLib
 from tensorprep_lib_br import TensorPrepLib
 
-import cPickle as pkl
+import pickle as pkl
 import random
 from scipy import ndimage
 import scipy.stats as ss
@@ -215,8 +215,8 @@ class PhysicalTrainer():
 
         self.train_y_tensor = torch.Tensor(train_y_flat)
 
-        print self.train_x_tensor.shape, 'Input training tensor shape'
-        print self.train_y_tensor.shape, 'Output training tensor shape'
+        print(self.train_x_tensor.shape, 'Input training tensor shape')
+        print(self.train_y_tensor.shape, 'Output training tensor shape')
 
 
         self.train_dataset = torch.utils.data.TensorDataset(self.train_x_tensor, self.train_y_tensor)

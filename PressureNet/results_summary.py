@@ -6,7 +6,7 @@ import pickle
 import time
 import imutils
 import math
-import cPickle as pkl
+import pickle as pkl
 import os
 SHORT = False
 
@@ -145,8 +145,8 @@ if __name__ == '__main__':
         elif opt.pose_type == 'p_select':
             POSE_TYPE = "1"
         else:
-            print "Please choose a pose type - either prescribed poses, " \
-                  "'--pose_type prescribed', or participant selected poses, '--pose_type p_select'."
+            print("Please choose a pose type - either prescribed poses, " \
+                  "'--pose_type prescribed', or participant selected poses, '--pose_type p_select'.")
             sys.exit()
 
 
@@ -175,7 +175,7 @@ if __name__ == '__main__':
             participant_info = load_pickle(participant_directory + "/participant_info_red.p")
 
             for key in participant_info:
-                print "key: ", key
+                print("key: ", key)
 
             #if participant_info['gender'] == 'f': continue #use this to test gender partitions
 
@@ -183,12 +183,12 @@ if __name__ == '__main__':
            # pose_type_list = participant_info['pose_type']
             #if participant_info['gender'] == 'f': continue
 
-            print "participant directory: ", participant_directory
+            print("participant directory: ", participant_directory)
 
             current_results_dict = load_pickle("/media/henry/multimodal_data_2/data_BR/final_results/"+NETWORK_2+"/results_real_"
                                                    +participant+"_"+POSE_TYPE+"_"+NETWORK_2+".p")
 
-            print "/media/henry/multimodal_data_2/data_BR/final_results/"+NETWORK_2+"/results_real_"+participant+"_"+POSE_TYPE+"_"+NETWORK_2+".p"
+            print("/media/henry/multimodal_data_2/data_BR/final_results/"+NETWORK_2+"/results_real_"+participant+"_"+POSE_TYPE+"_"+NETWORK_2+".p")
             #for entry in current_results_dict:
             #    print "entry: ", entry
 
@@ -196,7 +196,7 @@ if __name__ == '__main__':
             #print participant
 
             #print len(current_results_dict['recall'])
-            print len(current_results_dict['recall'])
+            print(len(current_results_dict['recall']))
 
             #to test posture
             idx_num = -1
@@ -221,16 +221,16 @@ if __name__ == '__main__':
 
 
                 if participant == "S114" and POSE_TYPE == "2"  and i in [26, 29]:
-                    print "skipping", i#, partition_type
+                    print("skipping", i)#, partition_type
                     continue #these don't have point clouds
                 elif participant == "S165" and POSE_TYPE == "2" and i in [1, 3, 15]:
-                    print "skipping", i#, partition_type
+                    print("skipping", i)#, partition_type
                     continue #these don't have point clouds
                 elif participant == "S188" and POSE_TYPE == "2"  and i in [5, 17, 21]:
-                    print "skipping", i#, partition_type
+                    print("skipping", i)#, partition_type
                     continue
                 elif participant == "S145" and POSE_TYPE == "1" and i in [0]:
-                    print "skipping", i
+                    print("skipping", i)
                     continue
 
                 else: idx_num += 1
@@ -252,9 +252,9 @@ if __name__ == '__main__':
 
 
                 if POSE_TYPE == "1":
-                    print i, idx_num, participant_info['p_select_pose_type'][idx_num]
+                    print(i, idx_num, participant_info['p_select_pose_type'][idx_num])
                 elif POSE_TYPE == "2":
-                    print i, idx_num, participant_info['prescribed_pose_type'][idx_num]
+                    print(i, idx_num, participant_info['prescribed_pose_type'][idx_num])
 
 
 
@@ -290,10 +290,10 @@ if __name__ == '__main__':
        # print "average recall: ", np.mean(recall_list)
         #print "average overlap depth err: ", np.mean(overlap_d_err_list)
 
-        print "testing data size ct: ", testing_data_sz_ct
-        print "average v to gt err: ", np.mean(v_to_gt_err_list)*100
-        print "average gt to v err: ", np.mean(gt_to_v_err_list)*100
-        print "mean 3D err: ", np.mean([np.mean(v_to_gt_err_list), np.mean(gt_to_v_err_list)])
+        print("testing data size ct: ", testing_data_sz_ct)
+        print("average v to gt err: ", np.mean(v_to_gt_err_list)*100)
+        print("average gt to v err: ", np.mean(gt_to_v_err_list)*100)
+        print("mean 3D err: ", np.mean([np.mean(v_to_gt_err_list), np.mean(gt_to_v_err_list)]))
 
 
 
@@ -367,7 +367,7 @@ if __name__ == '__main__':
             #current_results_dict = load_pickle("/home/henry/data/final_results/"+NETWORK_2+"/results_synth_"+filename+NETWORK_2+".p")
             current_results_dict = load_pickle("/media/henry/multimodal_data_2/data_BR/final_results/"+NETWORK_2+"/results_synth_"+filename+".p")
             for entry in current_results_dict:
-                print entry
+                print(entry)
             #print current_results_dict['j_err'], 'j err'
             #precision =
 
@@ -398,15 +398,15 @@ if __name__ == '__main__':
            # break
 
         #print np.min(overlap_d_err_avg_list), np.max(overlap_d_err_list)
-        print np.shape(joint_err_list)
-        print
-        print len(v_to_gt_err_avg_list)
+        print(np.shape(joint_err_list))
+        print()
+        print(len(v_to_gt_err_avg_list))
 
         #print "average precision: ", np.mean(precision_avg_list)
         #print "average recall: ", np.mean(recall_avg_list)
         #print "average overlap depth err: ", np.mean(overlap_d_err_avg_list)
-        print "average v to gt err: ", np.mean(v_to_gt_err_avg_list)*100
-        print "average gt to v err: ", np.mean(gt_to_v_err_avg_list)*100
-        print "mean 3DVPE err: ", np.mean([np.mean(v_to_gt_err_avg_list), np.mean(gt_to_v_err_avg_list)])*100
-        print "MPJPE: ", np.mean(joint_err_list)*100
-        print "v2v: ", np.mean(v2v_err_list)*100
+        print("average v to gt err: ", np.mean(v_to_gt_err_avg_list)*100)
+        print("average gt to v err: ", np.mean(gt_to_v_err_avg_list)*100)
+        print("mean 3DVPE err: ", np.mean([np.mean(v_to_gt_err_avg_list), np.mean(gt_to_v_err_avg_list)])*100)
+        print("MPJPE: ", np.mean(joint_err_list)*100)
+        print("v2v: ", np.mean(v2v_err_list)*100)

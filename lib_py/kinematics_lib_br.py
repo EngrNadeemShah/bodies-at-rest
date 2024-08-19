@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.pylab import *
 
-import cPickle as pkl
+import pickle as pkl
 import random
 from scipy import ndimage
 import scipy.stats as ss
@@ -207,9 +207,9 @@ class KinematicsLib():
         m21 = R[:, :, 2, 1]
         m22 = R[:, :, 2, 2]
 
-        print m00.size()
+        print(m00.size())
 
-        print b_zeros.size()
+        print(b_zeros.size())
 
         # symmetric matrix K
         K = torch.stack([m00 - m11 - m22, 0.0*m00, 0.0*m00, 0.0*m00,

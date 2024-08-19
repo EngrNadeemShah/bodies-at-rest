@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.pylab import *
 
-import cPickle as pkl
+import pickle as pkl
 import random
 from scipy import ndimage
 import scipy.stats as ss
@@ -81,7 +81,7 @@ class PreprocessingLib():
 
         if is_training == True:
             variation_amount = float(noise_amount)
-            print "ADDING CALIB NOISE", variation_amount
+            print("ADDING CALIB NOISE", variation_amount)
 
             #pmat_contact_orig = np.copy(images[:, pmat_chan_idx, :, :])
             #pmat_contact_orig[pmat_contact_orig != 0] = 1.
@@ -178,10 +178,10 @@ class PreprocessingLib():
     def preprocessing_create_pressure_angle_stack(self,x_data, mat_size, CTRL_PNL):
         '''This is for creating a 2-channel input using the height of the bed. '''
 
-        if CTRL_PNL['verbose']: print np.max(x_data)
+        if CTRL_PNL['verbose']: print(np.max(x_data))
         x_data = np.clip(x_data, 0, 100)
 
-        print "normalizing per image", CTRL_PNL['normalize_per_image']
+        print("normalizing per image", CTRL_PNL['normalize_per_image'])
 
         p_map_dataset = []
         for map_index in range(len(x_data)):
@@ -247,9 +247,9 @@ class PreprocessingLib():
             pmat_sum = 1./(torch.sum(torch.sum(images[:, 4, :, :], dim=1), dim=1)/100000.)
             sobel_sum = 1./(torch.sum(torch.sum(images[:, 5, :, :], dim=1), dim=1)/100000.)
 
-            print "ConvNet input size: ", images.size(), pmat_sum.size()
+            print("ConvNet input size: ", images.size(), pmat_sum.size())
             for i in range(images.size()[1]):
-                print i, torch.min(images[0, i, :, :]), torch.max(images[0, i, :, :])
+                print(i, torch.min(images[0, i, :, :]), torch.max(images[0, i, :, :]))
 
             images[:, 4, :, :] = (images[:, 4, :, :].permute(1, 2, 0)*pmat_sum).permute(2, 0, 1)
             images[:, 5, :, :] = (images[:, 5, :, :].permute(1, 2, 0)*sobel_sum).permute(2, 0, 1)
@@ -258,9 +258,9 @@ class PreprocessingLib():
             pmat_sum = 1./(torch.sum(torch.sum(images[:, 1, :, :], dim=1), dim=1)/100000.)
             sobel_sum = 1./(torch.sum(torch.sum(images[:, 2, :, :], dim=1), dim=1)/100000.)
 
-            print "ConvNet input size: ", images.size(), pmat_sum.size()
+            print("ConvNet input size: ", images.size(), pmat_sum.size())
             for i in range(images.size()[1]):
-                print i, torch.min(images[0, i, :, :]), torch.max(images[0, i, :, :])
+                print(i, torch.min(images[0, i, :, :]), torch.max(images[0, i, :, :]))
 
 
             images[:, 1, :, :] = (images[:, 1, :, :].permute(1, 2, 0)*pmat_sum).permute(2, 0, 1)

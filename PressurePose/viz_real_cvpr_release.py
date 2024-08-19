@@ -16,7 +16,7 @@ sys.path.insert(0, '../lib_py')
 import lib_pyrender_basic as libPyRender
 from smpl.smpl_webuser.serialization import load_model
 
-import cPickle as pkl
+import pickle as pkl
 
 def load_pickle(filename):
     with open(filename, 'rb') as f:
@@ -43,7 +43,7 @@ from random import shuffle
 import torch
 import torch.nn as nn
 
-import cPickle as pickle
+import pickle as pickle
 VERT_CUT, HORIZ_CUT = 0, 50
 pre_VERT_CUT = 40
 
@@ -71,9 +71,9 @@ class Viz3DPose():
     def load_new_participant_info(self, participant_directory):
         ##load participant info
         participant_info = load_pickle(participant_directory+"/participant_info_red.p")
-        print "participant directory: ", participant_directory
+        print("participant directory: ", participant_directory)
         for entry in participant_info:
-            print entry, participant_info[entry]
+            print(entry, participant_info[entry])
 
         self.gender = participant_info['gender']
         self.height_in = participant_info['height_in']
@@ -140,7 +140,7 @@ class Viz3DPose():
 
             pmat_corners = dat['pmat_corners'][im_num]
             rgb = dat['RGB'][im_num]
-            print "Pose type: ", dat['pose_type'][im_num]
+            print("Pose type: ", dat['pose_type'][im_num])
 
             rgb[int(pmat_corners[0][1]+0.5)-2:int(pmat_corners[0][1]+0.5)+2, \
                 int(pmat_corners[0][0]+0.5)-2:int(pmat_corners[0][0]+0.5)+2, :] = 0
@@ -270,7 +270,7 @@ if __name__ ==  "__main__":
                         "S196", ]
 
     if opt.p_idx == 0:
-        print "Please choose a participant with flag `--p_idx #`. Enter a number from 1 to 20."
+        print("Please choose a participant with flag `--p_idx #`. Enter a number from 1 to 20.")
         sys.exit()
     else:
         PARTICIPANT = participant_list[opt.p_idx - 1]
@@ -291,8 +291,8 @@ if __name__ ==  "__main__":
     elif opt.pose_type == "p_select":
         dat = load_pickle(participant_directory+"/p_select.p")
     else:
-        print "Please choose a pose type - either prescribed poses, " \
-              "'--pose_type prescribed', or participant selected poses, '--pose_type p_select'."
+        print("Please choose a pose type - either prescribed poses, " \
+              "'--pose_type prescribed', or participant selected poses, '--pose_type p_select'.")
         sys.exit()
 
     F_eval = V3D.evaluate_data(dat)

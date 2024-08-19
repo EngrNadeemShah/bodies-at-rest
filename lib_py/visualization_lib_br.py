@@ -13,7 +13,7 @@ rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
 #rc('font',**{'family':'serif','serif':['Palatino']})
 rc('text', usetex=True)
 
-import cPickle as pkl
+import pickle as pkl
 import random
 from scipy import ndimage
 import scipy.stats as ss
@@ -81,7 +81,7 @@ class VisualizationLib():
                                                         'L Elbow', 'R Elbow', 'L Wrist', 'R Wrist', 'L Hand ', 'R Hand ']], np.transpose(
             np.concatenate(([['', '', '', ''], [' x, cm ', ' y, cm ', ' z, cm ', '  norm ']], error_avg_print))))))
         if printerror == True:
-            print data, error_avg_print
+            print(data, error_avg_print)
 
 
         error_std = np.std(error, axis=0) / 10
@@ -159,7 +159,7 @@ class VisualizationLib():
                                                    'R Knee ', 'L Knee ', 'R Foot ', 'L Foot ']], np.transpose(
             np.concatenate(([['', '', '', ''], [' x, cm ', ' y, cm ', ' z, cm ', '  norm ']], error_avg_print))))))
         if printerror == True:
-            print data, error_avg_print
+            print(data, error_avg_print)
 
 
         error_std = np.std(error, axis=0) / 10
