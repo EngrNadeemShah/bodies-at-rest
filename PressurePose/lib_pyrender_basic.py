@@ -155,14 +155,12 @@ class pyRenderMesh():
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(pc)
         #print("Downsample the point cloud with a voxel of 0.01 m)
-        downpcd = o3d.geometry.voxel_down_sample(pcd, voxel_size=0.01)
+        downpcd = pcd.voxel_down_sample(voxel_size=0.01)
 
-        o3d.geometry.estimate_normals(
-            downpcd,
-            search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.05,
-                                                              max_nn=30))
+        downpcd.estimate_normals(
+            search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.05, max_nn=30))
 
-        o3d.geometry.orient_normals_towards_camera_location(downpcd, camera_location=np.array(camera_point))
+        downpcd.orient_normals_towards_camera_location(camera_location=np.array(camera_point))
         points = np.array(downpcd.points)
         normals = np.array(downpcd.normals)
 
