@@ -1,0 +1,23 @@
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Virtual environment
+venv/
+.env/
+.conda
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Logs and databases
+*.log
+*.sqlite3
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+
+# Others
+.DS_Store
