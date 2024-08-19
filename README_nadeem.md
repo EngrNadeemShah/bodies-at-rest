@@ -73,3 +73,55 @@ conda config --set env_prompt '({name})'    -> to show (envs) instead of whole p
     replaced using ctrl shift F but still
     this is python 2 syntax
     uninstalling env and creating new env with python 2.7
+
+
+################ NEW on 28.06.2024 ######################
+# Creating venv inside main directory to track the versions and what changes are needed to do in default libraries (dependencies)
+
+1. conda create -p .\env
+    conda activate -p .\env
+
+2. conda install python=3.8
+3. pip install -r .\requirements.txt
+4. in env/lib/site-packages/chumpy/__init__.py, replaced -> (from numpy import bool, int, float, complex, object, unicode, str, nan, inf) with -> (from numpy import bool_, int_, float_, complex_, object_, unicode_, str_, nan, inf).
+
+5. pip install open3d
+    pip uninstall open3d-python
+    pip uninstall open3d
+    pip install open3d
+
+6. to run .\viz_synth_cvpr_release.py with --seg argument:
+    create new conda env with python 2 using:
+        conda create -n python2 python=2.7
+    convert lib_py/segmented_mesh_idx_faces.p
+    from python 2 pickle to JSON file
+    using this code:
+        import cPickle as pickle
+        import json
+
+        # Replace 'your_pickle_file.pkl' with the actual file path
+        pickle_file = r'D:\Coding\bodies-at-rest\lib_py\segmented_mesh_idx_faces.p'
+        json_file = r'json_file.json'
+
+        with open(pickle_file, 'rb') as f:
+            data = pickle.load(f)
+
+        with open(json_file, 'w') as f:
+            json.dump(data, f)
+    
+    and then convert JSON to python 3 pickle file using this code:
+        import json
+        import pickle
+
+        # File paths
+        json_file = r'z_json_file.json'
+        pickle_file = r'z_converted_pickle_file.p'
+
+        # Load the data from the JSON file
+        with open(json_file, 'r') as f:
+            data = json.load(f)
+
+        # Save the data to a pickle file
+        with open(pickle_file, 'wb') as f:
+            pickle.dump(data, f)
+
