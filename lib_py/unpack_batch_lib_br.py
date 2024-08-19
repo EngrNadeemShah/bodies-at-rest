@@ -6,12 +6,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.pylab import *
 
-import cPickle as pkl
+import pickle as pkl
 import random
 from scipy import ndimage
 import scipy.stats as ss
-from scipy.misc import imresize
-from scipy.ndimage.interpolation import zoom
+# from scipy.misc import imresize
+# from scipy.ndimage.interpolation import zoom
 
 import sys
 sys.path.insert(0, '../lib_py')
@@ -42,11 +42,11 @@ HIGH_TAXEL_THRESH_Y = (NUMOFTAXELS_Y - 1)
 
 
 # import hrl_lib.util as ut
-import cPickle as pickle
+import pickle as pickle
 # from hrl_lib.util import load_pickle
 def load_pickle(filename):
     with open(filename, 'rb') as f:
-        return pickle.load(f)
+        return pickle.load(f, encoding='latin1')
 
 class UnpackBatchLib():
 
@@ -195,10 +195,10 @@ class UnpackBatchLib():
         INPUT_DICT['batch_targets'] = targets.data
 
         for i in range(INPUT_DICT['batch_images'].size()[1]):
-            print 'max: ', torch.max(INPUT_DICT['batch_images'][0, i, :, :]).cpu().data.numpy(),
+            print('max: ', torch.max(INPUT_DICT['batch_images'][0, i, :, :]).cpu().data.numpy(), end=' ')
         for i in range(INPUT_DICT['batch_images'].size()[1]):
-            print '  sum: ', torch.sum(INPUT_DICT['batch_images'][0, i, :, :]).cpu().data.numpy(),
-        print
+            print('  sum: ', torch.sum(INPUT_DICT['batch_images'][0, i, :, :]).cpu().data.numpy(), end=' ')
+        print()
 
         return scores, INPUT_DICT, OUTPUT_DICT
 

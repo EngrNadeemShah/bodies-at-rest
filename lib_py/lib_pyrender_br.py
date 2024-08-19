@@ -2,7 +2,7 @@
 try:
     import open3d as o3d
 except:
-    print "COULD NOT IMPORT 03D"
+    print("COULD NOT IMPORT 03D")
 import trimesh
 import pyrender
 import pyglet
@@ -34,7 +34,7 @@ import torch
 import torch.nn as nn
 
 import tensorflow as tensorflow
-import cPickle as pickle
+import pickle as pickle
 
 
 #IKPY
@@ -50,11 +50,11 @@ import matplotlib.cm as cm #use cm.jet(list)
 #hmr
 from hmr.src.tf_smpl.batch_smpl import SMPL
 
-import cPickle as pkl
+import pickle as pkl
 
 def load_pickle(filename):
     with open(filename, 'rb') as f:
-        return pickle.load(f)
+        return pickle.load(f, encoding='latin1')
 
 import os
 
@@ -402,7 +402,7 @@ class pyRenderMesh():
                 human_mesh_vtx_parts = [smpl_verts[segmented_dict['r_leg_idx_list'], :]]
                 human_mesh_face_parts = [segmented_dict['r_leg_face_list']]
             else:
-                print "got here"
+                print("got here")
                 segmented_dict = load_pickle('../lib_py/segmented_mesh_idx_faces.p')
                 human_mesh_vtx_parts = [smpl_verts[segmented_dict['l_lowerleg_idx_list'], :],
                                         smpl_verts[segmented_dict['r_lowerleg_idx_list'], :],
@@ -555,8 +555,8 @@ class pyRenderMesh():
             add_gt = pc_smpl_minmax_new_ids[0,2] - pc_smpl_minmax_new_ids[2,2]
         else:
             add_gt = 0
-        print "adding to mesh", add_mesh
-        print "adding to gt", add_gt
+        print("adding to mesh", add_mesh)
+        print("adding to gt", add_gt)
 
         for i in range(voxelgrid.shape[2]):
             #print mesh_height_arr.shape, voxelgrid[:, :, i].shape
@@ -686,10 +686,10 @@ class pyRenderMesh():
         average_err_m_overlap = 0.005*np.sum(viz_maps[:, :, 4])/np.sum(overlapping)
         average_err_m = 0.005*np.sum(np.abs(viz_maps[:, :, 5] - viz_maps[:, :, 1]))/(np.count_nonzero(viz_maps[:, :, 3]))
 
-        print "Precision is:", precision
-        print "Recall is:", recall
-        print "Average error from overlapping:", average_err_m_overlap
-        print "Average error:", average_err_m
+        print("Precision is:", precision)
+        print("Recall is:", recall)
+        print("Average error from overlapping:", average_err_m_overlap)
+        print("Average error:", average_err_m)
         RESULTS_DICT['precision'].append(precision)
         RESULTS_DICT['recall'].append(recall)
         RESULTS_DICT['overlap_d_err'].append(average_err_m_overlap)
@@ -929,7 +929,7 @@ class pyRenderMesh():
         vert_to_nearest_point_error_list = vert_to_nearest_point_error_list[0:np.shape(norm_area_avg)[0]]
         norm_vert_to_nearest_point_error = np.array(vert_to_nearest_point_error_list) * norm_area_avg
         v_to_gt_err = np.mean(norm_vert_to_nearest_point_error)
-        print "average vert to nearest pc point error:", v_to_gt_err
+        print("average vert to nearest pc point error:", v_to_gt_err)
         RESULTS_DICT['v_to_gt_err'].append(v_to_gt_err)
 
         # -- per limb part --
@@ -947,10 +947,10 @@ class pyRenderMesh():
 
                 norm_vert_to_nearest_point_part_error = np.array(all_limb_list_vert_to_nearest_point_error_part_list[idx]) * norm_area_avg
                 part_error = np.mean(norm_vert_to_nearest_point_part_error)
-                print "average vert of ",human_parts_string_names[idx] ," to nearest pc point error:", part_error
+                print("average vert of ",human_parts_string_names[idx] ," to nearest pc point error:", part_error)
                 human_parts_error.append(part_error)
             else:
-                print "average vert of ",human_parts_string_names[idx] ," to nearest pc point error: NULL appending 0"
+                print("average vert of ",human_parts_string_names[idx] ," to nearest pc point error: NULL appending 0")
                 human_parts_error.append(0)
                 skip_limbs_list.append(idx)
 
@@ -1078,7 +1078,7 @@ class pyRenderMesh():
             pc_to_nearest_vert_error_list.append(curr_error)
             # break
         gt_to_v_err = np.mean(pc_to_nearest_vert_error_list)
-        print "average pc point to nearest vert error:", gt_to_v_err
+        print("average pc point to nearest vert error:", gt_to_v_err)
         RESULTS_DICT['gt_to_v_err'].append(gt_to_v_err)
 
 
@@ -1509,7 +1509,7 @@ class pyRenderMesh():
             all_limb_list_dir_vert_part_err[idx][0:np.shape(norm_area_avg)[0]]
             norm_vert_to_nearest_vertGT_part_error = np.array(all_limb_list_dir_vert_part_err[idx]) * norm_area_avg
             norm_colors.append(cm.jet(norm_area_avg/np.max(norm_area_avg))[:, 0:3])
-            print "average vert of ", human_parts_string_names[idx], " to direct vert error:", np.mean(norm_vert_to_nearest_vertGT_part_error)
+            print("average vert of ", human_parts_string_names[idx], " to direct vert error:", np.mean(norm_vert_to_nearest_vertGT_part_error))
             human_parts_errors.append(np.mean(norm_vert_to_nearest_vertGT_part_error))
         RESULTS_DICT['dir_v_limb_err'].append(human_parts_errors)
 
@@ -1522,10 +1522,10 @@ class pyRenderMesh():
         norm_area_avg = self.get_triangle_area_vert_weight(human_mesh_vtx_direrr[0], human_mesh_face_direrr[0], verts_idx_red)
 
         norm_dir_cart_error = np.array(cart_err) * norm_area_avg
-        print "average direct vertex-to-vertex error, correcting for triangle size:", np.mean(norm_dir_cart_error)
+        print("average direct vertex-to-vertex error, correcting for triangle size:", np.mean(norm_dir_cart_error))
         RESULTS_DICT['dir_v_err'].append(np.mean(norm_dir_cart_error))
 
-        print "average direct vertex-to-vertex error:", np.mean(cart_err)
+        print("average direct vertex-to-vertex error:", np.mean(cart_err))
         RESULTS_DICT['v2v_err'].append(np.mean(cart_err))
 
         verts_dir_color_error = np.array(cart_err) / np.max(cart_err)
@@ -1617,7 +1617,7 @@ class pyRenderMesh():
         #print "COLORING SHAPE", np.shape(norm_area_avg_color)
 
         norm_estvert_to_nearest_gtvert_error = np.array(estvert_to_nearest_gtvert_error_list)[0:norm_area_avg.shape[0]] * norm_area_avg[0:len(estvert_to_nearest_gtvert_error_list)]
-        print "average est vert to nearest gt vert error:", np.mean(norm_estvert_to_nearest_gtvert_error)
+        print("average est vert to nearest gt vert error:", np.mean(norm_estvert_to_nearest_gtvert_error))
         RESULTS_DICT['v_to_gt_err'].append(np.mean(norm_estvert_to_nearest_gtvert_error))
 
 
@@ -1665,10 +1665,10 @@ class pyRenderMesh():
                     norm_vert_to_nearest_vertGT_part_error = np.array(
                         all_limb_list_vert_to_nearest_vertGT_error_part_list[idx]) * norm_area_avg
                     part_error = np.mean(norm_vert_to_nearest_vertGT_part_error)
-                    print "average vert of ", human_parts_string_names[idx], " to nearest pc point error:", part_error
+                    print("average vert of ", human_parts_string_names[idx], " to nearest pc point error:", part_error)
                     human_parts_error.append(part_error)
                 else:
-                    print "average vert of ", human_parts_string_names[idx], " to nearest pc point error: NULL appending 0"
+                    print("average vert of ", human_parts_string_names[idx], " to nearest pc point error: NULL appending 0")
                     human_parts_error.append(0)
                     skip_limbs_list.append(idx)
             RESULTS_DICT['v_limb_to_gt_err'].append(human_parts_error)
@@ -1685,7 +1685,7 @@ class pyRenderMesh():
                 all_limb_list_vert_to_nearest_vertGT_error_part_list[idx][0:np.shape(norm_area_avg)[0]]
                 norm_vert_to_nearest_vertGT_part_error = np.array(all_limb_list_vert_to_nearest_vertGT_error_part_list[idx]) * norm_area_avg
                 norm_colors.append(cm.jet(norm_area_avg/np.max(norm_area_avg))[:, 0:3])
-                print "average vert of ", human_parts_string_names[idx], " to nearest gt vert error:", np.mean(norm_vert_to_nearest_vertGT_part_error)
+                print("average vert of ", human_parts_string_names[idx], " to nearest gt vert error:", np.mean(norm_vert_to_nearest_vertGT_part_error))
                 human_parts_errors.append(np.mean(norm_vert_to_nearest_vertGT_part_error))
             RESULTS_DICT['v_limb_to_gt_err'].append(human_parts_errors)
 
@@ -1797,10 +1797,10 @@ class pyRenderMesh():
 
 
         norm_min_size = np.min([np.shape(gtvert_to_nearest_estvert_error_list)[0], np.shape(norm_area_avg)[0]])
-        print norm_min_size
+        print(norm_min_size)
 
         norm_gtvert_to_nearest_estvert_error = np.array(gtvert_to_nearest_estvert_error_list)[0:norm_min_size] * norm_area_avg[0:norm_min_size]
-        print "average gt vert to nearest est vert error, regardless of normal:", np.mean(norm_gtvert_to_nearest_estvert_error)
+        print("average gt vert to nearest est vert error, regardless of normal:", np.mean(norm_gtvert_to_nearest_estvert_error))
         RESULTS_DICT['gt_to_v_err'].append(np.mean(norm_gtvert_to_nearest_estvert_error))
 
         if self.render == True:
