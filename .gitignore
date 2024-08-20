@@ -21,3 +21,6 @@ venv/
 
 # Others
 .DS_Store
+
+# Pickle files (As they are large in size)
+*.pkl
