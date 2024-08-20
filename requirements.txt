@@ -1,12 +1,12 @@
-numpy
+# numpy
 trimesh
 pyrender
-matplotlib
-torch
-torchvision
+# matplotlib
+# torch
+# torchvision
 chumpy
 opencv-python
-scikit-learn # sklearn
+# scikit-learn # sklearn
 open3d-python
 imutils
 camera
