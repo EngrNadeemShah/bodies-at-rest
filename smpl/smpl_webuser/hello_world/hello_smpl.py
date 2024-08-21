@@ -40,6 +40,12 @@ the hello world script now by typing the following:
 
 '''
 
+import os
+import sys
+
+# Add the parent directory of 'smpl' to the Python path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+
 from smpl_webuser.serialization import load_model
 import numpy as np
 
