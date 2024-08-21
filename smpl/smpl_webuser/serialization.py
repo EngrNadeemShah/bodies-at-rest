@@ -23,11 +23,11 @@ Modules included:
 __all__ = ['load_model', 'save_model']
 
 import numpy as np
-import cPickle as pickle
+import pickle as pickle
 import chumpy as ch
 from chumpy.ch import MatVecMult
-from posemapper import posemap
-from verts import verts_core
+from .posemapper import posemap
+from .verts import verts_core
     
 def save_model(model, fname):
     m0 = model
@@ -130,7 +130,7 @@ def load_model(fname_or_dict):
     result = result + dd['trans'].reshape((1,3))
     result.J_transformed = Jtr + dd['trans'].reshape((1,3))
 
-    for k, v in dd.items():
+    for k, v in list(dd.items()):
         setattr(result, k, v)
         
     return result
