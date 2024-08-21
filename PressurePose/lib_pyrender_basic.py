@@ -29,7 +29,7 @@ import matplotlib.cm as cm #use cm.jet(list)
 import pickle as pickle
 def load_pickle(filename):
     with open(filename, 'rb') as f:
-        return pickle.load(f)
+        return pickle.load(f, encoding='latin1')
 
 
 

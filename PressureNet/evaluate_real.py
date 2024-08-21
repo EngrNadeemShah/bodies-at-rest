@@ -13,7 +13,7 @@ import pickle as pkl
 
 def load_pickle(filename):
     with open(filename, 'rb') as f:
-        return pickle.load(f)
+        return pickle.load(f, encoding='latin1')
 import sys
 sys.path.insert(0, '../lib_py')
 

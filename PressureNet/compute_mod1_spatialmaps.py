@@ -25,7 +25,7 @@ import pickle as pickle
 # from hrl_lib.util import load_pickle
 def load_pickle(filename):
     with open(filename, 'rb') as f:
-        return pickle.load(f)
+        return pickle.load(f, encoding='latin1')
 
 import sys
 sys.path.insert(0, '../lib_py')
