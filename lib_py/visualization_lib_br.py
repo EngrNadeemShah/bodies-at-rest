@@ -17,8 +17,8 @@ import pickle as pkl
 import random
 from scipy import ndimage
 import scipy.stats as ss
-from scipy.misc import imresize
-from scipy.ndimage.interpolation import zoom
+# from scipy.misc import imresize
+# from scipy.ndimage.interpolation import zoom
 
 #ROS
 #import rospy
