@@ -123,6 +123,7 @@ class PhysicalTrainer():
         self.CTRL_PNL['cal_noise_amt'] = 0.2
         self.CTRL_PNL['double_network_size'] = False
         self.CTRL_PNL['first_pass'] = True
+        self.CTRL_PNL['align_procr'] = False
 
         if GPU == True:
             torch.cuda.set_device(self.opt.device)
