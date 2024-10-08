@@ -24,7 +24,8 @@ venv/
 
 # Pickle files (As they are large in size)
 *.pkl
+*.p
+*.pt
 
 # Local files and folders
 x_rough.ipynb
-data_BR
