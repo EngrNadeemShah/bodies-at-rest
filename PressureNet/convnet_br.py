@@ -34,7 +34,6 @@ class CNN(nn.Module):
         #############################################################################
         #print mat_size
         self.loss_vector_type = loss_vector_type
-        print('$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$')
 
         self.count = 0
 
@@ -117,18 +116,15 @@ class CNN(nn.Module):
             nn.Linear(67200*2, out_size), #89600, out_size),
         )
 
-        print('Out size:', out_size)
 
         if torch.cuda.is_available():
             self.GPU = True
             # Use for self.GPU
             dtype = torch.cuda.FloatTensor
-            print('######################### CUDA is available! #############################')
         else:
             self.GPU = False
             # Use for CPU
             dtype = torch.FloatTensor
-            print('############################## USING CPU #################################')
         self.dtype = dtype
 
         self.verts_list = verts_list
@@ -148,7 +144,6 @@ class CNN(nn.Module):
                 images = torch.cat((images[:, 1:CTRL_PNL['num_input_channels_batch0']-1, :, :], images[:, CTRL_PNL['num_input_channels_batch0']:, :, :]), dim = 1)
 
 
-        print("ConvNet input size: ", images.size())
 
         reg_angles = CTRL_PNL['regr_angles']
 

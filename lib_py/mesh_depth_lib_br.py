@@ -52,19 +52,15 @@ class MeshDepthLib():
             # Use for self.GPU
             dtype = torch.cuda.FloatTensor
             dtypeInt = torch.cuda.LongTensor
-            print('######################### CUDA is available! #############################')
         else:
             self.GPU = False
             # Use for CPU
             dtype = torch.FloatTensor
             dtypeInt = torch.LongTensor
-            print('############################## USING CPU #################################')
         self.dtype = dtype
         self.dtypeInt = dtypeInt
         self.loss_vector_type = loss_vector_type
 
-        print(self.loss_vector_type)
-        print(verts_list, "VERTS LIST")
         if self.loss_vector_type == 'anglesDC':
             self.bounds = torch.Tensor(
                 np.array([[-0.5933865286111969, 0.5933865286111969], [-2*np.pi, 2*np.pi], [-1.215762200416361, 1.215762200416361],

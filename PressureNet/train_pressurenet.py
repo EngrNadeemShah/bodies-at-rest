@@ -338,8 +338,8 @@ class PhysicalTrainer():
         self.test_y_tensor = torch.Tensor(test_y_flat)
 
 
-        print(self.test_x_tensor.shape, 'Input testing tensor shape')
-        print(self.test_y_tensor.shape, 'Output testing tensor shape')
+        print(f"test_x_tensor:  {self.test_x_tensor.shape}")
+        print(f"test_y_tensor:  {self.test_y_tensor.shape}")
 
 
 
@@ -394,7 +394,6 @@ class PhysicalTrainer():
 
 
 
-        print("Loading convnet model................................")
 
         fc_output_size = 85## 10 + 3 + 24*3 --- betas, root shift, rotations
 
@@ -425,7 +424,7 @@ class PhysicalTrainer():
             for s in list(p.size()):
                 nn = nn * s
             pp += nn
-        print('LOADED. num params: ', pp)
+        print(f"\nTotal number of parameters: {pp}")
 
 
         # Run model on GPU if available
@@ -545,7 +544,7 @@ class PhysicalTrainer():
                         print("GPU memory:", torch.cuda.max_memory_allocated())
 
                     val_n_batches = 4
-                    print("evaluating on ", val_n_batches)
+                    print(f"Evaluating on {val_n_batches} batches")
 
                     im_display_idx = 0 #random.randint(0,INPUT_DICT['batch_images'].size()[0])
 

@@ -63,7 +63,6 @@ class TensorPrepLib():
             #print creation_type, some_subject, 'some subject'
             if creation_type in some_subject:
                 dat_curr = load_pickle(some_subject)
-                print(some_subject, dat_curr['bed_angle_deg'][0])
                 for key in dat_curr:
                     if np.array(dat_curr[key]).shape[0] != 0:
                         for inputgoalset in np.arange(len(dat_curr['images'])):
