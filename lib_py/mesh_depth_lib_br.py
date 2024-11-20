@@ -45,7 +45,7 @@ def load_pickle(filename):
 
 class MeshDepthLib():
 
-    def __init__(self, loss_vector_type, batch_size, verts_list):
+    def __init__(self, loss_vector_type, batch_size, verts_list, STAR=False):
 
         if torch.cuda.is_available():
             self.GPU = True
@@ -60,6 +60,9 @@ class MeshDepthLib():
         self.dtype = dtype
         self.dtypeInt = dtypeInt
         self.loss_vector_type = loss_vector_type
+        self.STAR = STAR
+        print(f"STAR: {STAR}")
+        print(f"self.STAR: {self.STAR}")
 
         if self.loss_vector_type == 'anglesDC':
             self.bounds = torch.Tensor(
@@ -253,65 +256,136 @@ class MeshDepthLib():
                 # print torch.cuda.max_memory_allocated(), torch.cuda.memory_allocated(), torch.cuda.memory_cached(),"p6"
         else:
             if loss_vector_type == 'anglesR' or loss_vector_type == 'anglesDC' or loss_vector_type == 'anglesEU':
-                from smpl.smpl_webuser.serialization import load_model
+                print(f"self.STAR: {self.STAR}")
+                if self.STAR:
+                    print(f"self.STAR: {self.STAR}")
+                    # load (female) STAR model
+                    model_path_f= "/home/nadeemshah/coding/STAR/models/female/model.npz"
+                    human_f     = np.load(model_path_f, allow_pickle=True)
+                    self.num_posedirs = human_f['posedirs'].shape[2]
 
-                model_path_f = '../smpl/models/basicModel_f_lbs_10_207_0_v1.0.0.pkl'
-                human_f = load_model(model_path_f)
-                self.v_template_f = torch.Tensor(np.array(human_f.v_template)).type(dtype)
-                self.shapedirs_f = torch.Tensor(np.array(human_f.shapedirs)).permute(0, 2, 1).type(dtype)
-                self.J_regressor_f = np.zeros((human_f.J_regressor.shape)) + human_f.J_regressor
-                self.J_regressor_f = torch.Tensor(np.array(self.J_regressor_f).astype(float)).permute(1, 0).type(dtype)
-                print(verts_list[0], verts_list[1])
-                self.posedirs_f = torch.Tensor(np.stack([human_f.posedirs[verts_list[0], :, :],
-                                                         human_f.posedirs[verts_list[1], :, :],
-                                                         human_f.posedirs[verts_list[2], :, :],
-                                                         human_f.posedirs[verts_list[3], :, :],
-                                                         human_f.posedirs[verts_list[4], :, :],
-                                                         human_f.posedirs[verts_list[5], :, :],
-                                                         human_f.posedirs[verts_list[6], :, :],
-                                                         human_f.posedirs[verts_list[7], :, :],
-                                                         human_f.posedirs[verts_list[8], :, :],
-                                                         human_f.posedirs[verts_list[9], :,
-                                                         :]])).type(dtype)
-                self.weights_f = torch.Tensor(np.stack([human_f.weights[verts_list[0], :],
-                                                        human_f.weights[verts_list[1], :],
-                                                        human_f.weights[verts_list[2], :],
-                                                        human_f.weights[verts_list[3], :],
-                                                        human_f.weights[verts_list[4], :],
-                                                        human_f.weights[verts_list[5], :],
-                                                        human_f.weights[verts_list[6], :],
-                                                        human_f.weights[verts_list[7], :],
-                                                        human_f.weights[verts_list[8], :],
-                                                        human_f.weights[verts_list[9], :]])).type(dtype)
+                    self.v_template_f = torch.Tensor(np.array(human_f['v_template'])).type(dtype)
+                    self.shapedirs_f = torch.Tensor(np.array(human_f['shapedirs'][:, :, :10])).permute(0, 2, 1).type(dtype)
+                    self.J_regressor_f = np.zeros((human_f['J_regressor'].shape)) + human_f['J_regressor']
+                    self.J_regressor_f = torch.Tensor(np.array(self.J_regressor_f).astype(float)).permute(1, 0).type(dtype)
 
-                model_path_m = '../smpl/models/basicmodel_m_lbs_10_207_0_v1.0.0.pkl'
-                human_m = load_model(model_path_m)
-                self.v_template_m = torch.Tensor(np.array(human_m.v_template)).type(dtype)
-                self.shapedirs_m = torch.Tensor(np.array(human_m.shapedirs)).permute(0, 2, 1).type(dtype)
-                self.J_regressor_m = np.zeros((human_m.J_regressor.shape)) + human_m.J_regressor
-                self.J_regressor_m = torch.Tensor(np.array(self.J_regressor_m).astype(float)).permute(1, 0).type(dtype)
-                self.posedirs_m = torch.Tensor(np.stack([human_m.posedirs[verts_list[0], :, :],
-                                                         human_m.posedirs[verts_list[1], :, :],
-                                                         human_m.posedirs[verts_list[2], :, :],
-                                                         human_m.posedirs[verts_list[3], :, :],
-                                                         human_m.posedirs[verts_list[4], :, :],
-                                                         human_m.posedirs[verts_list[5], :, :],
-                                                         human_m.posedirs[verts_list[6], :, :],
-                                                         human_m.posedirs[verts_list[7], :, :],
-                                                         human_m.posedirs[verts_list[8], :, :],
-                                                         human_m.posedirs[verts_list[9], :,
-                                                         :]])).type(dtype)
-                self.weights_m = torch.Tensor(np.stack([human_m.weights[verts_list[0], :],
-                                                        human_m.weights[verts_list[1], :],
-                                                        human_m.weights[verts_list[2], :],
-                                                        human_m.weights[verts_list[3], :],
-                                                        human_m.weights[verts_list[4], :],
-                                                        human_m.weights[verts_list[5], :],
-                                                        human_m.weights[verts_list[6], :],
-                                                        human_m.weights[verts_list[7], :],
-                                                        human_m.weights[verts_list[8], :],
-                                                        human_m.weights[verts_list[9], :]])).type(
-                    dtype)
+                    self.posedirs_f = torch.Tensor(np.stack([human_f['posedirs'][verts_list[0], :, :],
+                                                            human_f['posedirs'][verts_list[1], :, :],
+                                                            human_f['posedirs'][verts_list[2], :, :],
+                                                            human_f['posedirs'][verts_list[3], :, :],
+                                                            human_f['posedirs'][verts_list[4], :, :],
+                                                            human_f['posedirs'][verts_list[5], :, :],
+                                                            human_f['posedirs'][verts_list[6], :, :],
+                                                            human_f['posedirs'][verts_list[7], :, :],
+                                                            human_f['posedirs'][verts_list[8], :, :],
+                                                            human_f['posedirs'][verts_list[9], :, :]
+                                                            ])).type(dtype)
+                    self.weights_f = torch.Tensor(np.stack([human_f['weights'][verts_list[0], :],
+                                                            human_f['weights'][verts_list[1], :],
+                                                            human_f['weights'][verts_list[2], :],
+                                                            human_f['weights'][verts_list[3], :],
+                                                            human_f['weights'][verts_list[4], :],
+                                                            human_f['weights'][verts_list[5], :],
+                                                            human_f['weights'][verts_list[6], :],
+                                                            human_f['weights'][verts_list[7], :],
+                                                            human_f['weights'][verts_list[8], :],
+                                                            human_f['weights'][verts_list[9], :]])).type(dtype)
+
+                    # load (male) STAR model
+                    model_path_m= "/home/nadeemshah/coding/STAR/models/male/model.npz"
+                    human_m     = np.load(model_path_m, allow_pickle=True)
+
+                    self.v_template_m = torch.Tensor(np.array(human_m['v_template'])).type(dtype)
+                    self.shapedirs_m = torch.Tensor(np.array(human_m['shapedirs'][:, :, :10])).permute(0, 2, 1).type(dtype)
+                    self.J_regressor_m = np.zeros((human_m['J_regressor'].shape)) + human_m['J_regressor']
+                    self.J_regressor_m = torch.Tensor(np.array(self.J_regressor_m).astype(float)).permute(1, 0).type(dtype)
+
+                    self.posedirs_m = torch.Tensor(np.stack([human_m['posedirs'][verts_list[0], :, :],
+                                                            human_m['posedirs'][verts_list[1], :, :],
+                                                            human_m['posedirs'][verts_list[2], :, :],
+                                                            human_m['posedirs'][verts_list[3], :, :],
+                                                            human_m['posedirs'][verts_list[4], :, :],
+                                                            human_m['posedirs'][verts_list[5], :, :],
+                                                            human_m['posedirs'][verts_list[6], :, :],
+                                                            human_m['posedirs'][verts_list[7], :, :],
+                                                            human_m['posedirs'][verts_list[8], :, :],
+                                                            human_m['posedirs'][verts_list[9], :,
+                                                            :]])).type(dtype)
+                    self.weights_m = torch.Tensor(np.stack([human_m['weights'][verts_list[0], :],
+                                                            human_m['weights'][verts_list[1], :],
+                                                            human_m['weights'][verts_list[2], :],
+                                                            human_m['weights'][verts_list[3], :],
+                                                            human_m['weights'][verts_list[4], :],
+                                                            human_m['weights'][verts_list[5], :],
+                                                            human_m['weights'][verts_list[6], :],
+                                                            human_m['weights'][verts_list[7], :],
+                                                            human_m['weights'][verts_list[8], :],
+                                                            human_m['weights'][verts_list[9], :]])).type(
+                        dtype)
+
+                else:
+                    print(f"self.STAR: {self.STAR} - inside else")
+                    from smpl.smpl_webuser.serialization import load_model
+                    model_path_f = '../smpl/models/basicModel_f_lbs_10_207_0_v1.0.0.pkl'
+                    human_f = load_model(model_path_f)
+                    self.num_posedirs = human_f.posedirs.shape[2]
+
+                    self.v_template_f = torch.Tensor(np.array(human_f.v_template)).type(dtype)
+                    self.shapedirs_f = torch.Tensor(np.array(human_f.shapedirs)).permute(0, 2, 1).type(dtype)
+                    self.J_regressor_f = np.zeros((human_f.J_regressor.shape)) + human_f.J_regressor
+                    self.J_regressor_f = torch.Tensor(np.array(self.J_regressor_f).astype(float)).permute(1, 0).type(dtype)
+
+                    self.posedirs_f = torch.Tensor(np.stack([human_f.posedirs[verts_list[0], :, :],
+                                                            human_f.posedirs[verts_list[1], :, :],
+                                                            human_f.posedirs[verts_list[2], :, :],
+                                                            human_f.posedirs[verts_list[3], :, :],
+                                                            human_f.posedirs[verts_list[4], :, :],
+                                                            human_f.posedirs[verts_list[5], :, :],
+                                                            human_f.posedirs[verts_list[6], :, :],
+                                                            human_f.posedirs[verts_list[7], :, :],
+                                                            human_f.posedirs[verts_list[8], :, :],
+                                                            human_f.posedirs[verts_list[9], :,
+                                                            :]])).type(dtype)
+                    self.weights_f = torch.Tensor(np.stack([human_f.weights[verts_list[0], :],
+                                                            human_f.weights[verts_list[1], :],
+                                                            human_f.weights[verts_list[2], :],
+                                                            human_f.weights[verts_list[3], :],
+                                                            human_f.weights[verts_list[4], :],
+                                                            human_f.weights[verts_list[5], :],
+                                                            human_f.weights[verts_list[6], :],
+                                                            human_f.weights[verts_list[7], :],
+                                                            human_f.weights[verts_list[8], :],
+                                                            human_f.weights[verts_list[9], :]])).type(dtype)
+
+                    model_path_m = '../smpl/models/basicmodel_m_lbs_10_207_0_v1.0.0.pkl'
+                    human_m = load_model(model_path_m)
+                    self.v_template_m = torch.Tensor(np.array(human_m.v_template)).type(dtype)
+                    self.shapedirs_m = torch.Tensor(np.array(human_m.shapedirs)).permute(0, 2, 1).type(dtype)
+                    self.J_regressor_m = np.zeros((human_m.J_regressor.shape)) + human_m.J_regressor
+                    self.J_regressor_m = torch.Tensor(np.array(self.J_regressor_m).astype(float)).permute(1, 0).type(dtype)
+
+                    self.posedirs_m = torch.Tensor(np.stack([human_m.posedirs[verts_list[0], :, :],
+                                                            human_m.posedirs[verts_list[1], :, :],
+                                                            human_m.posedirs[verts_list[2], :, :],
+                                                            human_m.posedirs[verts_list[3], :, :],
+                                                            human_m.posedirs[verts_list[4], :, :],
+                                                            human_m.posedirs[verts_list[5], :, :],
+                                                            human_m.posedirs[verts_list[6], :, :],
+                                                            human_m.posedirs[verts_list[7], :, :],
+                                                            human_m.posedirs[verts_list[8], :, :],
+                                                            human_m.posedirs[verts_list[9], :,
+                                                            :]])).type(dtype)
+                    self.weights_m = torch.Tensor(np.stack([human_m.weights[verts_list[0], :],
+                                                            human_m.weights[verts_list[1], :],
+                                                            human_m.weights[verts_list[2], :],
+                                                            human_m.weights[verts_list[3], :],
+                                                            human_m.weights[verts_list[4], :],
+                                                            human_m.weights[verts_list[5], :],
+                                                            human_m.weights[verts_list[6], :],
+                                                            human_m.weights[verts_list[7], :],
+                                                            human_m.weights[verts_list[8], :],
+                                                            human_m.weights[verts_list[9], :]])).type(
+                        dtype)
 
                 self.parents = np.array(
                     [4294967295, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 9, 9, 12, 13, 14, 16, 17, 18, 19, 20, 21]).astype(
@@ -347,7 +421,7 @@ class MeshDepthLib():
                 self.posedirs_repeat_m = self.posedirs_m.unsqueeze(0).repeat(self.N, 1, 1, 1).unsqueeze(0)
                 self.posedirs_repeat = torch.cat((self.posedirs_repeat_f, self.posedirs_repeat_m), 0)
                 # self.posedirs_repeat = self.posedirs_repeat.permute(1, 0, 2, 3, 4).view(self.N, 2, self.R*self.D*207)
-                self.posedirs_repeat = self.posedirs_repeat.permute(1, 0, 2, 3, 4).view(self.N, 2, 10 * self.D * 207)
+                self.posedirs_repeat = self.posedirs_repeat.permute(1, 0, 2, 3, 4).view(self.N, 2, 10 * self.D * 207)  # self.num_posedirs
 
                 self.weights_repeat_f = self.weights_f.unsqueeze(0).repeat(self.N, 1, 1).unsqueeze(0)
                 self.weights_repeat_m = self.weights_m.unsqueeze(0).repeat(self.N, 1, 1).unsqueeze(0)
