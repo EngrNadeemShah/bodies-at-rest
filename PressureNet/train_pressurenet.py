@@ -86,8 +86,8 @@ class PhysicalTrainer():
         self.CTRL_PNL['loss_vector_type'] = opt.losstype
         self.CTRL_PNL['verbose'] = opt.verbose
         self.opt = opt
-        self.CTRL_PNL['batch_size'] = 128
-        self.CTRL_PNL['num_epochs'] = 100
+        self.CTRL_PNL['batch_size'] = 512   # 128 changed by Nadeem
+        self.CTRL_PNL['num_epochs'] = 1     # 100 changed by Nadeem
         self.CTRL_PNL['incl_inter'] = True
         self.CTRL_PNL['shuffle'] = True
         self.CTRL_PNL['incl_ht_wt_channels'] = opt.htwt
@@ -120,7 +120,7 @@ class PhysicalTrainer():
         self.CTRL_PNL['all_tanh_activ'] = True
         self.CTRL_PNL['pmat_mult'] = int(1)
         self.CTRL_PNL['cal_noise'] = opt.calnoise
-        self.CTRL_PNL['cal_noise_amt'] = 0.2
+        self.CTRL_PNL['cal_noise_amt'] = 0.1    # 0.2 changed by Nadeem
         self.CTRL_PNL['double_network_size'] = False
         self.CTRL_PNL['first_pass'] = True
         self.CTRL_PNL['align_procr'] = False
@@ -252,7 +252,7 @@ class PhysicalTrainer():
         if self.CTRL_PNL['normalize_std'] == True:
             train_y_flat = TensorPrepLib().normalize_wt_ht(train_y_flat, self.CTRL_PNL)
 
-        self.train_y_tensor = torch.Tensor(train_y_flat)
+        self.train_y_tensor = torch.Tensor(np.array(train_y_flat))  # torch.Tensor(train_y_flat) changed by Nadeem
 
         print(self.train_x_tensor.shape, 'Input training tensor shape')
         print(self.train_y_tensor.shape, 'Output training tensor shape')
@@ -335,7 +335,7 @@ class PhysicalTrainer():
         if self.CTRL_PNL['normalize_std'] == True:
             test_y_flat = TensorPrepLib().normalize_wt_ht(test_y_flat, self.CTRL_PNL)
 
-        self.test_y_tensor = torch.Tensor(test_y_flat)
+        self.test_y_tensor = torch.Tensor(np.array(test_y_flat))    # torch.Tensor(test_y_flat) changed by Nadeem
 
 
         print(f"test_x_tensor:  {self.test_x_tensor.shape}")
@@ -540,8 +540,6 @@ class PhysicalTrainer():
 
                 if batch_idx % opt.log_interval == 0:# and batch_idx > 0:
 
-                    if GPU == True:
-                        print("GPU memory:", torch.cuda.max_memory_allocated())
 
                     val_n_batches = 4
                     print(f"Evaluating on {val_n_batches} batches")
@@ -825,7 +823,7 @@ if __name__ == "__main__":
         if opt.htwt == True:
             data_fp_suffix += '_htwt'
         if opt.calnoise == True:
-            data_fp_suffix += '_clns20p'
+            data_fp_suffix += '_clns10p'    # '_clns20p' changed by Nadeem
         if opt.loss_root == True:
             data_fp_suffix += '_rt'
         if opt.omit_cntct_sobel == True:

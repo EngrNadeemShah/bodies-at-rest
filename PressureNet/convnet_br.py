@@ -128,7 +128,8 @@ class CNN(nn.Module):
         self.dtype = dtype
 
         self.verts_list = verts_list
-        self.meshDepthLib = MeshDepthLib(loss_vector_type, batch_size, verts_list = self.verts_list)
+        # self.meshDepthLib = MeshDepthLib(loss_vector_type, batch_size, verts_list = self.verts_list)
+        # not needed here, it's only needed in the PhysicalTrainer.train_convnet -> UnpackBatchLib().unpack_batch -> model.CNN.forward_kinematic_angles
 
 
 

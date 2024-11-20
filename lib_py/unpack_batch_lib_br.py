@@ -124,6 +124,7 @@ class UnpackBatchLib():
 
         images_up_non_tensor = PreprocessingLib().preprocessing_pressure_map_upsample(images_up_non_tensor, multiple=2)
 
+        images_up_non_tensor = np.array(images_up_non_tensor)   # this line is added by Nadeem
         images_up = Variable(torch.Tensor(images_up_non_tensor).type(CTRL_PNL['dtype']), requires_grad=False)
 
 
