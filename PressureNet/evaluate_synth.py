@@ -384,17 +384,17 @@ class PhysicalTrainer():
                     UnpackBatchLib().unpackage_batch_kin_pass(batch_cloned, is_training=False, model = self.model, CTRL_PNL=self.CTRL_PNL)
                 #print torch.cuda.max_memory_allocated(), '1post train'
 
-                betas_est_prev = OUTPUT_DICTp['batch_betas_est_post_clip'].cpu().numpy()
-                angles_est_prev = OUTPUT_DICTp['batch_angles_est_post_clip']
-                root_shift_est_prev = OUTPUT_DICTp['batch_root_xyz_est_post_clip'].cpu().numpy()
+                betas_est_prev = OUTPUT_DICTp['y_pred_betas_post_clip'].cpu().numpy()
+                angles_est_prev = OUTPUT_DICTp['y_pred_angles_post_clip']
+                root_shift_est_prev = OUTPUT_DICTp['y_pred_root_xyz_post_clip'].cpu().numpy()
 
                 angles_est_prev = torch.mean(angles_est_prev, dim=0).reshape(72)
                 betas_est_prev = np.mean(betas_est_prev, axis=0)
                 root_shift_est_prev = np.mean(root_shift_est_prev, axis=0)
 
-                betas_est = OUTPUT_DICT['batch_betas_est_post_clip'].cpu().numpy()
-                angles_est = OUTPUT_DICT['batch_angles_est_post_clip']
-                root_shift_est = OUTPUT_DICT['batch_root_xyz_est_post_clip'].cpu().numpy()
+                betas_est = OUTPUT_DICT['y_pred_betas_post_clip'].cpu().numpy()
+                angles_est = OUTPUT_DICT['y_pred_angles_post_clip']
+                root_shift_est = OUTPUT_DICT['y_pred_root_xyz_post_clip'].cpu().numpy()
 
                 angles_est = torch.mean(angles_est, dim=0).reshape(72)
                 betas_est = np.mean(betas_est, axis=0)
@@ -451,7 +451,7 @@ class PhysicalTrainer():
 
                 bedangle=0
 
-                print(INPUT_DICT['batch_images'].shape)
+                print(INPUT_DICT['x_images'].shape)
 
                 # render in 3D pyrender with pressure mat
                 viz_type = "leg_correction"
@@ -460,14 +460,14 @@ class PhysicalTrainer():
 
                 ims_to_display = []
                 if viz_type == "arm_penetration":
-                    ims_to_display.append(INPUT_DICT['batch_images'][0, 4, :]*0. + 75.) #uniform
+                    ims_to_display.append(INPUT_DICT['x_images'][0, 4, :]*0. + 75.) #uniform
                     segment_limbs = True
                 elif viz_type == "leg_correction":
-                    ims_to_display.append(INPUT_DICT['batch_images'][0, 4, :]*23.) #pmat
-                    ims_to_display.append(INPUT_DICT['batch_images'][0, 2, :]*45.) #Q-, 1
+                    ims_to_display.append(INPUT_DICT['x_images'][0, 4, :]*23.) #pmat
+                    ims_to_display.append(INPUT_DICT['x_images'][0, 2, :]*45.) #Q-, 1
                     ims_to_display.append(INPUT_DICT['batch_mdm'].data.numpy().reshape(64, 27)*-1) #Q-, GT
-                    ims_to_display.append(INPUT_DICT['batch_images'][0, 4, :]*23.) #pmat
-                    ims_to_display.append(INPUT_DICT['batch_images'][0, 2, :]*45.) #Q-, 1
+                    ims_to_display.append(INPUT_DICT['x_images'][0, 4, :]*23.) #pmat
+                    ims_to_display.append(INPUT_DICT['x_images'][0, 2, :]*45.) #Q-, 1
                     ims_to_display.append(OUTPUT_DICT['batch_mdm_est'].data.numpy().reshape(64, 27)*-1) #Q-, 2
                     ims_to_display.append(INPUT_DICT['batch_mdm'].data.numpy().reshape(64, 27)*-1) #Q-, GT
                     segment_limbs = True
@@ -552,7 +552,7 @@ class PhysicalTrainer():
                 # 1. / 45.08513083167194,  # neg est depth
                 # 1. / 43.55800622930469,  # cm est
 
-                sc_sample1 = OUTPUT_DICT['batch_targets_est'].clone()
+                sc_sample1 = OUTPUT_DICT['y_pred_markers_xyz'].clone()
                 sc_sample1 = sc_sample1[0, :].squeeze() / 1000
                 sc_sample1 = sc_sample1.view(self.output_size_test)
                 # print sc_sample1
@@ -578,15 +578,15 @@ class PhysicalTrainer():
 
                     if self.CTRL_PNL['full_body_rot'] == False:
                         batch_cor.append(torch.cat((batch1,
-                                                    OUTPUT_DICT['batch_betas_est'].cpu(),
-                                                    OUTPUT_DICT['batch_angles_est'].cpu(),
-                                                    OUTPUT_DICT['batch_root_xyz_est'].cpu()), dim=1))
+                                                    OUTPUT_DICT['y_pred_betas'].cpu(),
+                                                    OUTPUT_DICT['y_pred_angles'].cpu(),
+                                                    OUTPUT_DICT['y_pred_root_xyz'].cpu()), dim=1))
                     elif self.CTRL_PNL['full_body_rot'] == True:
                         batch_cor.append(torch.cat((batch1,
-                                                    OUTPUT_DICT['batch_betas_est'].cpu(),
-                                                    OUTPUT_DICT['batch_angles_est'].cpu(),
-                                                    OUTPUT_DICT['batch_root_xyz_est'].cpu(),
-                                                    OUTPUT_DICT['batch_root_atan2_est'].cpu()), dim=1))
+                                                    OUTPUT_DICT['y_pred_betas'].cpu(),
+                                                    OUTPUT_DICT['y_pred_angles'].cpu(),
+                                                    OUTPUT_DICT['y_pred_root_xyz'].cpu(),
+                                                    OUTPUT_DICT['y_pred_root_atan2'].cpu()), dim=1))
 
                     self.CTRL_PNL['adjust_ang_from_est'] = True
 
@@ -608,12 +608,12 @@ class PhysicalTrainer():
 
                 # print betas_est, root_shift_est, angles_est
                 if self.CTRL_PNL['dropout'] == True:
-                    #print OUTPUT_DICT['verts'].shape
-                    smpl_verts = np.mean(OUTPUT_DICT['verts'], axis=0)
-                    dropout_variance = np.std(OUTPUT_DICT['verts'], axis=0)
+                    #print OUTPUT_DICT['SMPL_pred_verts'].shape
+                    smpl_verts = np.mean(OUTPUT_DICT['SMPL_pred_verts'], axis=0)
+                    dropout_variance = np.std(OUTPUT_DICT['SMPL_pred_verts'], axis=0)
                     dropout_variance = np.linalg.norm(dropout_variance, axis=1)
                 else:
-                    smpl_verts = OUTPUT_DICT['verts'][0, :, :]
+                    smpl_verts = OUTPUT_DICT['SMPL_pred_verts'][0, :, :]
                     dropout_variance = None
 
 
@@ -633,7 +633,7 @@ class PhysicalTrainer():
                 bedangle = 0.0
                 # print smpl_verts
 
-                RESULTS_DICT['betas'].append(OUTPUT_DICT['batch_betas_est_post_clip'].cpu().numpy()[0])
+                RESULTS_DICT['betas'].append(OUTPUT_DICT['y_pred_betas_post_clip'].cpu().numpy()[0])
                 print(RESULTS_DICT['betas'][-1], "BETAS")
 
                 viz_dim = self.opt.viz_dim
@@ -641,11 +641,11 @@ class PhysicalTrainer():
                 if viz_dim == "2D":
                     from visualization_lib import VisualizationLib
                     if self.model2 is not None:
-                        self.im_sample = INPUT_DICT['batch_images'][0, 4:,:].squeeze() * 20.  # normalizing_std_constants[4]*5.  #pmat
+                        self.im_sample = INPUT_DICT['x_images'][0, 4:,:].squeeze() * 20.  # normalizing_std_constants[4]*5.  #pmat
                     else:
-                        self.im_sample = INPUT_DICT['batch_images'][0, 1:,:].squeeze() * 20.  # normalizing_std_constants[4]*5.  #pmat
-                    self.im_sample_ext = INPUT_DICT['batch_images'][0, 0:,:].squeeze() * 20.  # normalizing_std_constants[0]  #pmat contact
-                    # self.im_sample_ext2 = INPUT_DICT['batch_images'][im_display_idx, 2:, :].squeeze()*20.#normalizing_std_constants[4]  #sobel
+                        self.im_sample = INPUT_DICT['x_images'][0, 1:,:].squeeze() * 20.  # normalizing_std_constants[4]*5.  #pmat
+                    self.im_sample_ext = INPUT_DICT['x_images'][0, 0:,:].squeeze() * 20.  # normalizing_std_constants[0]  #pmat contact
+                    # self.im_sample_ext2 = INPUT_DICT['x_images'][im_display_idx, 2:, :].squeeze()*20.#normalizing_std_constants[4]  #sobel
                     self.im_sample_ext3 = OUTPUT_DICT['batch_mdm_est'][0, :, :].squeeze().unsqueeze(0) * -1  # est depth output
 
                     # print scores[0, 10:16], 'scores of body rot'
@@ -654,9 +654,9 @@ class PhysicalTrainer():
 
                     # self.publish_depth_marker_array(self.im_sample_ext3)
 
-                    self.tar_sample = INPUT_DICT['batch_targets']
+                    self.tar_sample = INPUT_DICT['y_true_markers_xyz']
                     self.tar_sample = self.tar_sample[0, :].squeeze() / 1000
-                    sc_sample = OUTPUT_DICT['batch_targets_est'].clone()
+                    sc_sample = OUTPUT_DICT['y_pred_markers_xyz'].clone()
                     sc_sample = sc_sample[0, :].squeeze() / 1000
 
                     sc_sample = sc_sample.view(self.output_size_test)
@@ -693,7 +693,7 @@ class PhysicalTrainer():
 
                     #print joint_cart_gt, 'gt'
 
-                    sc_sample = OUTPUT_DICT['batch_targets_est'].clone()
+                    sc_sample = OUTPUT_DICT['y_pred_markers_xyz'].clone()
                     sc_sample = (sc_sample[0, :].squeeze().numpy() / 1000).reshape(24, 3)
 
                     #print sc_sample, 'estimate'

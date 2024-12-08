@@ -419,7 +419,7 @@ class Viz3DPose():
         # 1. / 45.08513083167194,  # neg est depth
         # 1. / 43.55800622930469,  # cm est
 
-        sc_sample1 = OUTPUT_DICT['batch_targets_est'].clone()
+        sc_sample1 = OUTPUT_DICT['y_pred_markers_xyz'].clone()
         sc_sample1 = sc_sample1[0, :].squeeze() / 1000
         sc_sample1 = sc_sample1.view(self.output_size_train)
         # print sc_sample1
@@ -446,15 +446,15 @@ class Viz3DPose():
 
             if self.CTRL_PNL['full_body_rot'] == False:
                 batch_cor.append(torch.cat((batch1,
-                                            OUTPUT_DICT['batch_betas_est'].cpu(),
-                                            OUTPUT_DICT['batch_angles_est'].cpu(),
-                                            OUTPUT_DICT['batch_root_xyz_est'].cpu()), dim=1))
+                                            OUTPUT_DICT['y_pred_betas'].cpu(),
+                                            OUTPUT_DICT['y_pred_angles'].cpu(),
+                                            OUTPUT_DICT['y_pred_root_xyz'].cpu()), dim=1))
             elif self.CTRL_PNL['full_body_rot'] == True:
                 batch_cor.append(torch.cat((batch1,
-                                            OUTPUT_DICT['batch_betas_est'].cpu(),
-                                            OUTPUT_DICT['batch_angles_est'].cpu(),
-                                            OUTPUT_DICT['batch_root_xyz_est'].cpu(),
-                                            OUTPUT_DICT['batch_root_atan2_est'].cpu()), dim=1))
+                                            OUTPUT_DICT['y_pred_betas'].cpu(),
+                                            OUTPUT_DICT['y_pred_angles'].cpu(),
+                                            OUTPUT_DICT['y_pred_root_xyz'].cpu(),
+                                            OUTPUT_DICT['y_pred_root_atan2'].cpu()), dim=1))
 
             self.CTRL_PNL['adjust_ang_from_est'] = True
 
@@ -473,15 +473,15 @@ class Viz3DPose():
 
         # print betas_est, root_shift_est, angles_est
         if self.CTRL_PNL['dropout'] == True:
-            # print OUTPUT_DICT['verts'].shape
-            smpl_verts = np.mean(OUTPUT_DICT['verts'], axis=0)
-            dropout_variance = np.std(OUTPUT_DICT['verts'], axis=0)
+            # print OUTPUT_DICT['SMPL_pred_verts'].shape
+            smpl_verts = np.mean(OUTPUT_DICT['SMPL_pred_verts'], axis=0)
+            dropout_variance = np.std(OUTPUT_DICT['SMPL_pred_verts'], axis=0)
             dropout_variance = np.linalg.norm(dropout_variance, axis=1)
         else:
-            smpl_verts = OUTPUT_DICT['verts'][0, :, :]
+            smpl_verts = OUTPUT_DICT['SMPL_pred_verts'][0, :, :]
             dropout_variance = None
 
-        self.RESULTS_DICT['betas'].append(OUTPUT_DICT['batch_betas_est_post_clip'].cpu().numpy()[0])
+        self.RESULTS_DICT['betas'].append(OUTPUT_DICT['y_pred_betas_post_clip'].cpu().numpy()[0])
 
         smpl_verts = np.concatenate(
             (smpl_verts[:, 1:2] - 0.286 + 0.0143, smpl_verts[:, 0:1] - 0.286 + 0.0143, 0.0 - smpl_verts[:, 2:3]),
@@ -505,34 +505,34 @@ class Viz3DPose():
         else:
             viz_type = "3D"
 
-        self.RESULTS_DICT['body_roll_rad'].append(float(OUTPUT_DICT['batch_angles_est'][0, 1]))
+        self.RESULTS_DICT['body_roll_rad'].append(float(OUTPUT_DICT['y_pred_angles'][0, 1]))
 
         if viz_type == "2D":
             im_display_idx = 0
 
             if model2 is not None:
-                self.cntct_in = INPUT_DICT['batch_images'][im_display_idx, 0, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][0]  #contact
-                self.pmap_recon_in = INPUT_DICT['batch_images'][im_display_idx, 2, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][2] #pmat
-                self.cntct_recon_in = INPUT_DICT['batch_images'][im_display_idx, 3, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][3] #pmat
-                self.hover_recon_in = INPUT_DICT['batch_images'][im_display_idx, 1, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][1] #pmat
-                self.pimage_in = INPUT_DICT['batch_images'][im_display_idx, 4, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][4] #pmat
-                self.sobel_in = INPUT_DICT['batch_images'][im_display_idx, 5, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][5]  #sobel
+                self.cntct_in = INPUT_DICT['x_images'][im_display_idx, 0, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][0]  #contact
+                self.pmap_recon_in = INPUT_DICT['x_images'][im_display_idx, 2, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][2] #pmat
+                self.cntct_recon_in = INPUT_DICT['x_images'][im_display_idx, 3, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][3] #pmat
+                self.hover_recon_in = INPUT_DICT['x_images'][im_display_idx, 1, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][1] #pmat
+                self.pimage_in = INPUT_DICT['x_images'][im_display_idx, 4, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][4] #pmat
+                self.sobel_in = INPUT_DICT['x_images'][im_display_idx, 5, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][5]  #sobel
             else:
-                self.cntct_in = INPUT_DICT['batch_images'][im_display_idx, 0, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][0]  #contact
+                self.cntct_in = INPUT_DICT['x_images'][im_display_idx, 0, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][0]  #contact
                 self.pmap_recon_in = None
                 self.cntct_recon_in = None
                 self.hover_recon_in = None
-                self.pimage_in = INPUT_DICT['batch_images'][im_display_idx, 1, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][1]  #pmat
-                self.sobel_in = INPUT_DICT['batch_images'][im_display_idx, 2, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][2]  #sobel
+                self.pimage_in = INPUT_DICT['x_images'][im_display_idx, 1, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][1]  #pmat
+                self.sobel_in = INPUT_DICT['x_images'][im_display_idx, 2, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][2]  #sobel
 
             self.pmap_recon = (OUTPUT_DICT['batch_mdm_est'][im_display_idx, :, :].squeeze() * -1).cpu().data  # est depth output
             self.cntct_recon = (OUTPUT_DICT['batch_cm_est'][im_display_idx, :, :].squeeze()).cpu().data  # est depth output
             self.hover_recon = (OUTPUT_DICT['batch_mdm_est'][im_display_idx, :, :].squeeze()).cpu().data  # est depth output
 
 
-            self.tar_sample = INPUT_DICT['batch_targets']
+            self.tar_sample = INPUT_DICT['y_true_markers_xyz']
             self.tar_sample = self.tar_sample[0, :].squeeze() / 1000
-            sc_sample = OUTPUT_DICT['batch_targets_est'].clone()
+            sc_sample = OUTPUT_DICT['y_pred_markers_xyz'].clone()
             sc_sample = sc_sample[0, :].squeeze() / 1000
 
             sc_sample = sc_sample.view(self.output_size_train)

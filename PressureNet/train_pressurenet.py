@@ -233,7 +233,7 @@ class PhysicalTrainer():
         if self.CTRL_PNL['normalize_std'] == True:
             train_xa = TensorPrepLib().normalize_network_input(train_xa, self.CTRL_PNL)
 
-        self.train_x_tensor = torch.Tensor(train_xa)
+        self.train_x = torch.Tensor(train_xa)
 
         train_y_flat = []  # Initialize the training ground truth list
         train_y_flat = TensorPrepLib().prep_labels(train_y_flat, dat_f_synth, num_repeats = 1,
@@ -252,10 +252,10 @@ class PhysicalTrainer():
         if self.CTRL_PNL['normalize_std'] == True:
             train_y_flat = TensorPrepLib().normalize_wt_ht(train_y_flat, self.CTRL_PNL)
 
-        self.train_y_tensor = torch.Tensor(np.array(train_y_flat))  # torch.Tensor(train_y_flat) changed by Nadeem
+        self.train_y = torch.Tensor(np.array(train_y_flat))  # torch.Tensor(train_y_flat) changed by Nadeem
 
-        print(self.train_x_tensor.shape, 'Input training tensor shape')
-        print(self.train_y_tensor.shape, 'Output training tensor shape')
+        print(self.train_x.shape, 'Input training tensor shape')
+        print(self.train_y.shape, 'Output training tensor shape')
 
 
 
@@ -308,7 +308,7 @@ class PhysicalTrainer():
         if self.CTRL_PNL['normalize_std'] == True:
             test_xa = TensorPrepLib().normalize_network_input(test_xa, self.CTRL_PNL)
 
-        self.test_x_tensor = torch.Tensor(test_xa)
+        self.test_x = torch.Tensor(test_xa)
 
         test_y_flat = []  # Initialize the ground truth listhave
 
@@ -335,17 +335,17 @@ class PhysicalTrainer():
         if self.CTRL_PNL['normalize_std'] == True:
             test_y_flat = TensorPrepLib().normalize_wt_ht(test_y_flat, self.CTRL_PNL)
 
-        self.test_y_tensor = torch.Tensor(np.array(test_y_flat))    # torch.Tensor(test_y_flat) changed by Nadeem
+        self.test_y = torch.Tensor(np.array(test_y_flat))    # torch.Tensor(test_y_flat) changed by Nadeem
 
 
-        print(f"test_x_tensor:  {self.test_x_tensor.shape}")
-        print(f"test_y_tensor:  {self.test_y_tensor.shape}")
+        print(f"test_x_tensor:  {self.test_x.shape}")
+        print(f"test_y_tensor:  {self.test_y.shape}")
 
 
 
 
         self.save_name = '_' + str(opt.mod) + '_' + opt.losstype + \
-                         '_' + str(self.train_x_tensor.size()[0]) + 'ct' + \
+                         '_' + str(self.train_x.size()[0]) + 'ct' + \
                          '_' + str(self.CTRL_PNL['batch_size']) + 'b' + \
                          '_x' + str(self.CTRL_PNL['pmat_mult']) + 'pm'
 
@@ -386,10 +386,10 @@ class PhysicalTrainer():
 
     def init_convnet_train(self):
 
-        self.train_dataset = torch.utils.data.TensorDataset(self.train_x_tensor, self.train_y_tensor)
+        self.train_dataset = torch.utils.data.TensorDataset(self.train_x, self.train_y)
         self.train_loader = torch.utils.data.DataLoader(self.train_dataset, self.CTRL_PNL['batch_size'], shuffle=self.CTRL_PNL['shuffle'])
 
-        self.test_dataset = torch.utils.data.TensorDataset(self.test_x_tensor, self.test_y_tensor)
+        self.test_dataset = torch.utils.data.TensorDataset(self.test_x, self.test_y)
         self.test_loader = torch.utils.data.DataLoader(self.test_dataset, self.CTRL_PNL['batch_size'], shuffle=self.CTRL_PNL['shuffle'])
 
 
@@ -544,33 +544,33 @@ class PhysicalTrainer():
                     val_n_batches = 4
                     print(f"Evaluating on {val_n_batches} batches")
 
-                    im_display_idx = 0 #random.randint(0,INPUT_DICT['batch_images'].size()[0])
+                    im_display_idx = 0 #random.randint(0,INPUT_DICT['x_images'].size()[0])
 
 
                     if GPU == True:
-                        VisualizationLib().print_error_train(INPUT_DICT['batch_targets'].cpu(), OUTPUT_DICT['batch_targets_est'].cpu(),
+                        VisualizationLib().print_error_train(INPUT_DICT['y_true_markers_xyz'].cpu(), OUTPUT_DICT['y_pred_markers_xyz'].cpu(),
                                                              self.output_size_train, self.CTRL_PNL['loss_vector_type'],
                                                              data='train')
                     else:
-                        VisualizationLib().print_error_train(INPUT_DICT['batch_targets'], OUTPUT_DICT['batch_targets_est'],
+                        VisualizationLib().print_error_train(INPUT_DICT['y_true_markers_xyz'], OUTPUT_DICT['y_pred_markers_xyz'],
                                                              self.output_size_train, self.CTRL_PNL['loss_vector_type'],
                                                              data='train')
 
-                   # print INPUT_DICT['batch_images'][im_display_idx, 4:, :].type()
+                   # print INPUT_DICT['x_images'][im_display_idx, 4:, :].type()
 
                     if self.CTRL_PNL['depth_map_labels'] == True: #pmr regression
-                        self.cntct_in = INPUT_DICT['batch_images'][im_display_idx, 0, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][0]  #contact
-                        self.pimage_in = INPUT_DICT['batch_images'][im_display_idx, 1, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][4] #pmat
-                        self.sobel_in = INPUT_DICT['batch_images'][im_display_idx, 2, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][5]  #sobel
+                        self.cntct_in = INPUT_DICT['x_images'][im_display_idx, 0, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][0]  #contact
+                        self.pimage_in = INPUT_DICT['x_images'][im_display_idx, 1, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][4] #pmat
+                        self.sobel_in = INPUT_DICT['x_images'][im_display_idx, 2, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][5]  #sobel
                         self.pmap_recon = (OUTPUT_DICT['batch_mdm_est'][im_display_idx, :, :].squeeze()*-1).cpu().data #est depth output
                         self.cntct_recon = (OUTPUT_DICT['batch_cm_est'][im_display_idx, :, :].squeeze()).cpu().data #est depth output
                         self.hover_recon = (hover_map[im_display_idx, :, :].squeeze()).cpu().data #est depth output
                         self.pmap_recon_gt = (INPUT_DICT['batch_mdm'][im_display_idx, :, :].squeeze()*-1).cpu().data #ground truth depth
                         self.cntct_recon_gt = (INPUT_DICT['batch_cm'][im_display_idx, :, :].squeeze()).cpu().data #ground truth depth
                     else:
-                        self.cntct_in = INPUT_DICT['batch_images'][im_display_idx, 0, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][0]  #contact
-                        self.pimage_in = INPUT_DICT['batch_images'][im_display_idx, 1, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][4]  #pmat
-                        self.sobel_in = INPUT_DICT['batch_images'][im_display_idx, 2, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][5]  #sobel
+                        self.cntct_in = INPUT_DICT['x_images'][im_display_idx, 0, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][0]  #contact
+                        self.pimage_in = INPUT_DICT['x_images'][im_display_idx, 1, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][4]  #pmat
+                        self.sobel_in = INPUT_DICT['x_images'][im_display_idx, 2, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][5]  #sobel
                         self.pmap_recon = None
                         self.cntct_recon = None
                         self.hover_recon = None
@@ -578,11 +578,11 @@ class PhysicalTrainer():
                         self.cntct_recon_gt = None
 
                     if self.CTRL_PNL['depth_map_input_est'] == True: #this is a network 2 option ONLY
-                        self.pmap_recon_in = INPUT_DICT['batch_images'][im_display_idx, 2, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][2] #pmat
-                        self.cntct_recon_in = INPUT_DICT['batch_images'][im_display_idx, 3, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][3] #pmat
-                        self.hover_recon_in = INPUT_DICT['batch_images'][im_display_idx, 1, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][1] #pmat
-                        self.pimage_in = INPUT_DICT['batch_images'][im_display_idx, 4, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][4] #pmat
-                        self.sobel_in = INPUT_DICT['batch_images'][im_display_idx, 5, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][5]  #sobel
+                        self.pmap_recon_in = INPUT_DICT['x_images'][im_display_idx, 2, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][2] #pmat
+                        self.cntct_recon_in = INPUT_DICT['x_images'][im_display_idx, 3, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][3] #pmat
+                        self.hover_recon_in = INPUT_DICT['x_images'][im_display_idx, 1, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][1] #pmat
+                        self.pimage_in = INPUT_DICT['x_images'][im_display_idx, 4, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][4] #pmat
+                        self.sobel_in = INPUT_DICT['x_images'][im_display_idx, 5, :].squeeze().cpu()/self.CTRL_PNL['norm_std_coeffs'][5]  #sobel
                     else:
                         self.pmap_recon_in = None
                         self.cntct_recon_in = None
@@ -591,14 +591,14 @@ class PhysicalTrainer():
 
 
 
-                    self.tar_sample = INPUT_DICT['batch_targets']
+                    self.tar_sample = INPUT_DICT['y_true_markers_xyz']
                     self.tar_sample = self.tar_sample[im_display_idx, :].squeeze() / 1000
-                    self.sc_sample = OUTPUT_DICT['batch_targets_est'].clone()
+                    self.sc_sample = OUTPUT_DICT['y_pred_markers_xyz'].clone()
                     self.sc_sample = self.sc_sample[im_display_idx, :].squeeze() / 1000
                     self.sc_sample = self.sc_sample.view(self.output_size_train)
 
                     train_loss = loss.data.item()
-                    examples_this_epoch = batch_idx * len(INPUT_DICT['batch_images'])
+                    examples_this_epoch = batch_idx * len(INPUT_DICT['x_images'])
                     epoch_progress = 100. * batch_idx / len(self.train_loader)
 
                     val_loss = self.validate_convnet(n_batches=val_n_batches)

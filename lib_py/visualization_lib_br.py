@@ -70,8 +70,9 @@ class VisualizationLib():
        #     print i
 
         error_avg = np.reshape(error_avg, (output_size[0], output_size[1]+1))
-        error_avg_print = np.reshape(np.array(["%.2f" % w for w in error_avg.reshape(error_avg.size)]),
-                                     (output_size[0], output_size[1] + 1))
+        # error_avg_print = np.reshape(np.array(["%.2f" % w for w in error_avg.reshape(error_avg.size)]),
+        #                              (output_size[0], output_size[1] + 1))
+        error_avg_print = np.array([f"{w:.2f}" for w in error_avg.flatten()]).reshape((output_size[0], output_size[1] + 1))
 
 
         error_avg_print = np.transpose(np.concatenate(([['Average Error for Last Batch', '       ',
@@ -90,8 +91,9 @@ class VisualizationLib():
         #    print i
 
         error_std = np.reshape(error_std, (output_size[0], output_size[1] + 1))
-        error_std_print = np.reshape(np.array(["%.2f" % w for w in error_std.reshape(error_std.size)]),
-                                     (output_size[0], output_size[1] + 1))
+        # error_std_print = np.reshape(np.array(["%.2f" % w for w in error_std.reshape(error_std.size)]),
+        #                              (output_size[0], output_size[1] + 1))
+        error_std_print = np.array([f"{w:.2f}" for w in error_std.flatten()]).reshape((output_size[0], output_size[1] + 1))
 
         error_std_print = np.transpose(np.concatenate(([['Error Standard Deviation for Last Batch', '       ',
                                                         'Pelvis ', 'L Hip  ', 'R Hip  ', 'Spine 1', 'L Knee ', 'R Knee ',
@@ -371,7 +373,7 @@ class VisualizationLib():
     def plot_joint_markers(self, markers, p_map_mult, ax, color):
         if markers is not None:
             if len(np.shape(markers)) == 1:
-                markers = np.reshape(markers, (len(markers) / 3, 3))
+                markers = np.reshape(markers, (int(len(markers) / 3), 3))
             target_coord = np.array(markers[:, :2]) / INTER_SENSOR_DISTANCE
             target_coord[:, 0] -= 10
             target_coord[:, 1] -= (NUMOFTAXELS_X - 1)

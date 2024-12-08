@@ -363,15 +363,15 @@ class PhysicalTrainer():
 
 
 
-            print(OUTPUT_DICT['batch_angles_est'].shape, n_examples)
-            for item in range(OUTPUT_DICT['batch_angles_est'].shape[0]):
+            print(OUTPUT_DICT['y_pred_angles'].shape, n_examples)
+            for item in range(OUTPUT_DICT['y_pred_angles'].shape[0]):
                 self.dat['mdm_est'].append(OUTPUT_DICT['batch_mdm_est'][item].cpu().numpy().astype(float32))
                 self.dat['cm_est'].append(OUTPUT_DICT['batch_cm_est'][item].cpu().numpy().astype(int16))
-                self.dat['angles_est'].append(OUTPUT_DICT['batch_angles_est'][item].cpu().numpy().astype(float32))
-                self.dat['root_xyz_est'].append(OUTPUT_DICT['batch_root_xyz_est'][item].cpu().numpy().astype(float32))
-                self.dat['betas_est'].append(OUTPUT_DICT['batch_betas_est'][item].cpu().numpy().astype(float32))
+                self.dat['angles_est'].append(OUTPUT_DICT['y_pred_angles'][item].cpu().numpy().astype(float32))
+                self.dat['root_xyz_est'].append(OUTPUT_DICT['y_pred_root_xyz'][item].cpu().numpy().astype(float32))
+                self.dat['betas_est'].append(OUTPUT_DICT['y_pred_betas'][item].cpu().numpy().astype(float32))
                 if self.CTRL_PNL['full_body_rot'] == True:
-                    self.dat['root_atan2_est'].append(OUTPUT_DICT['batch_root_atan2_est'][item].cpu().numpy().astype(float32))
+                    self.dat['root_atan2_est'].append(OUTPUT_DICT['y_pred_root_atan2'][item].cpu().numpy().astype(float32))
 
             n_examples += self.CTRL_PNL['batch_size']
             #print n_examples
@@ -381,16 +381,16 @@ class PhysicalTrainer():
 
 
             try:
-                targets_print = torch.cat([targets_print, torch.mean(INPUT_DICT['batch_targets'], dim = 0).unsqueeze(0)], dim=0)
-                targets_est_print = torch.cat([targets_est_print, torch.mean(OUTPUT_DICT['batch_targets_est'], dim = 0).unsqueeze(0)], dim=0)
+                targets_print = torch.cat([targets_print, torch.mean(INPUT_DICT['y_true_markers_xyz'], dim = 0).unsqueeze(0)], dim=0)
+                targets_est_print = torch.cat([targets_est_print, torch.mean(OUTPUT_DICT['y_pred_markers_xyz'], dim = 0).unsqueeze(0)], dim=0)
             except:
 
-                targets_print = torch.mean(INPUT_DICT['batch_targets'], dim = 0).unsqueeze(0)
-                targets_est_print = torch.mean(OUTPUT_DICT['batch_targets_est'], dim = 0).unsqueeze(0)
+                targets_print = torch.mean(INPUT_DICT['y_true_markers_xyz'], dim = 0).unsqueeze(0)
+                targets_est_print = torch.mean(OUTPUT_DICT['y_pred_markers_xyz'], dim = 0).unsqueeze(0)
 
 
-            print(targets_print.shape, INPUT_DICT['batch_targets'].shape)
-            print(targets_est_print.shape, OUTPUT_DICT['batch_targets_est'].shape)
+            print(targets_print.shape, INPUT_DICT['y_true_markers_xyz'].shape)
+            print(targets_est_print.shape, OUTPUT_DICT['y_pred_markers_xyz'].shape)
 
 
             if GPU == True:
