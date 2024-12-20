@@ -86,8 +86,8 @@ class PhysicalTrainer():
         self.CTRL_PNL['loss_vector_type'] = opt.losstype
         self.CTRL_PNL['verbose'] = opt.verbose
         self.opt = opt
-        self.CTRL_PNL['batch_size'] = 512   # 128 changed by Nadeem
-        self.CTRL_PNL['num_epochs'] = 1     # 100 changed by Nadeem
+        self.CTRL_PNL['batch_size'] = 512   # 128 changed by Nadeem to 512
+        self.CTRL_PNL['num_epochs'] = 1     # 100 changed by Nadeem to 1
         self.CTRL_PNL['incl_inter'] = True
         self.CTRL_PNL['shuffle'] = True
         self.CTRL_PNL['incl_ht_wt_channels'] = opt.htwt
@@ -120,7 +120,7 @@ class PhysicalTrainer():
         self.CTRL_PNL['all_tanh_activ'] = True
         self.CTRL_PNL['pmat_mult'] = int(1)
         self.CTRL_PNL['cal_noise'] = opt.calnoise
-        self.CTRL_PNL['cal_noise_amt'] = 0.1    # 0.2 changed by Nadeem
+        self.CTRL_PNL['cal_noise_amt'] = 0.1    # 0.2 changed by Nadeem to 0.1
         self.CTRL_PNL['double_network_size'] = False
         self.CTRL_PNL['first_pass'] = True
         self.CTRL_PNL['align_procr'] = False
@@ -823,7 +823,7 @@ if __name__ == "__main__":
         if opt.htwt == True:
             data_fp_suffix += '_htwt'
         if opt.calnoise == True:
-            data_fp_suffix += '_clns10p'    # '_clns20p' changed by Nadeem
+            data_fp_suffix += '_clns10p'    # changed from _clns20p to _clns10p by Nadeem
         if opt.loss_root == True:
             data_fp_suffix += '_rt'
         if opt.omit_cntct_sobel == True:

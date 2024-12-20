@@ -17,8 +17,8 @@ from torchvision import transforms
 from torch.autograd import Variable
 import chumpy as ch
 
-import convnet as convnet
-import tf.transformations as tft
+import convnet_br as convnet
+# import tf.transformations as tft
 
 # import hrl_lib.util as ut
 import pickle as pickle

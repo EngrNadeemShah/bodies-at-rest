@@ -303,6 +303,7 @@ class CNN(nn.Module):
             y_pred_cnn[:, 13+OSA:85+OSA] += torch.mean(self.SMPL_meshDepthLib.bounds[0:72, 0:2], dim=1)
 
 
+            CTRL_PNL['align_procr'] = False
             if CTRL_PNL['align_procr'] == True:
                 print("aligning procrustes")
                 y_pred_root_xyz = y_true_root_xyz
@@ -357,12 +358,11 @@ class CNN(nn.Module):
 
         if CTRL_PNL['depth_map_output'] == True:
             # break things up into sub batches and pass through the mesh
-            num_normal_sub_batches = current_batch_size / self.SMPL_meshDepthLib.N
-            if current_batch_size % self.SMPL_meshDepthLib.N != 0:
-                sub_batch_incr_list = num_normal_sub_batches * [self.SMPL_meshDepthLib.N] + [
-                    current_batch_size % self.SMPL_meshDepthLib.N]
+            num_normal_sub_batches = current_batch_size // self.SMPL_meshDepthLib.batch_size
+            if current_batch_size % self.SMPL_meshDepthLib.batch_size != 0:
+                sub_batch_incr_list = num_normal_sub_batches * [self.SMPL_meshDepthLib.batch_size] + [current_batch_size % self.SMPL_meshDepthLib.batch_size]
             else:
-                sub_batch_incr_list = num_normal_sub_batches * [self.SMPL_meshDepthLib.N]
+                sub_batch_incr_list = num_normal_sub_batches * [self.SMPL_meshDepthLib.batch_size]
             start_incr, end_incr = 0, 0
 
             #print len(sub_batch_incr_list), current_batch_size

@@ -202,11 +202,9 @@ class MeshDepthLib():
                 else:
                     batch_sub_divider = 1
 
-                self.batch_size = batch_size / batch_sub_divider
-                self.SMPL_shapedirs_f = self.SMPL_shapedirs_f.unsqueeze(0).repeat(self.batch_size, 1, 1, 1).permute(0, 2, 1, 3).unsqueeze(
-                    0)
-                self.SMPL_shapedirs_m = self.SMPL_shapedirs_m.unsqueeze(0).repeat(self.batch_size, 1, 1, 1).permute(0, 2, 1, 3).unsqueeze(
-                    0)
+                self.batch_size = int(batch_size / batch_sub_divider)
+                self.SMPL_shapedirs_f = self.SMPL_shapedirs_f.unsqueeze(0).repeat(self.batch_size, 1, 1, 1).permute(0, 2, 1, 3).unsqueeze(0)
+                self.SMPL_shapedirs_m = self.SMPL_shapedirs_m.unsqueeze(0).repeat(self.batch_size, 1, 1, 1).permute(0, 2, 1, 3).unsqueeze(0)
                 self.shapedirs = torch.cat((self.SMPL_shapedirs_f, self.SMPL_shapedirs_m), 0)  # this is 2 x N x B x R x D
                 self.SMPL_B = self.shapedirs.size()[2]  # this is 10
                 self.SMPL_R = self.shapedirs.size()[3]  # this is 6890, or num of verts
