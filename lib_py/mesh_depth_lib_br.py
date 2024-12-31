@@ -27,6 +27,9 @@ import torch.optim as optim
 #from torchvision import transforms
 from torch.autograd import Variable
 
+from utils import *
+import inspect
+
 MAT_WIDTH = 0.762 #metres
 MAT_HEIGHT = 1.854 #metres
 MAT_HALF_WIDTH = MAT_WIDTH/2
@@ -46,6 +49,15 @@ def load_pickle(filename):
 class MeshDepthLib():
 
     def __init__(self, loss_vector_type, batch_size, verts_list, STAR=False):
+        log_message("2.2.1.1", f"{self.__class__.__name__}.{inspect.stack()[0][3]}", start=True)
+        print_project_details()
+
+        print(f"_" * 80)
+        print(f"Inputs to {self.__class__.__name__}.{inspect.stack()[0][3]}:")
+        print(f"loss_vector_type:   {loss_vector_type}")
+        print(f"batch_size:         {batch_size}")
+        print(f"verts_list:         {verts_list}")
+        print(f"_" * 80)
 
         if torch.cuda.is_available():
             self.GPU = True
@@ -103,6 +115,7 @@ class MeshDepthLib():
                           [-0.01, 0.01], [-0.01, 0.01], [-0.01, 0.01],  # hand
                           [-0.01, 0.01], [-0.01, 0.01], [-0.01, 0.01]])).type(dtype)
             self.bounds*=1.2
+            print(f"bounds: {self.bounds.size()}")
 
         elif self.loss_vector_type == 'anglesEU':
             self.bounds = torch.Tensor(
@@ -385,6 +398,31 @@ class MeshDepthLib():
                                                             SMPL_human_m.weights[verts_list[9], :]])).type(
                         dtype)
 
+                print('_' * 80)
+                print(f"model_path_f:   {model_path_f}")
+                print(f"M O D I F I E D   A T T R I B U T E S")
+                print(f"v_template:     {self.v_template_f.size()}")
+                print(f"shapedirs:      {self.shapedirs_f.size()}")
+                print(f"J_regressor:    {self.J_regressor_f.size()}")
+                print(f"posedirs:       {self.posedirs_f.size()}")
+                print(f"weights:        {self.weights_f.size()}")
+
+                if self.STAR:
+                    print(f"{'STAR Female Model (pickle_file) Summary':^80}")
+                    print(f"v_template:     {human_f['v_template'].shape}")
+                    print(f"shapedirs:      {human_f['shapedirs'].shape}")
+                    print(f"J_regressor:    {human_f['J_regressor'].shape}")
+                    print(f"posedirs:       {human_f['posedirs'].shape}")
+                    print(f"weights:        {human_f['weights'].shape}")
+                else:
+                    print(f"{'SMPL Female Model (pickle_file) Summary':^80}")
+                    print(f"v_template:     {human_f.v_template.shape}")
+                    print(f"shapedirs:      {human_f.shapedirs.shape}")
+                    print(f"J_regressor:    {human_f.J_regressor.shape}")
+                    print(f"posedirs:       {human_f.posedirs.shape}")
+                    print(f"weights:        {human_f.weights.shape}")
+                print('_' * 80)
+
                 self.parents = np.array(
                     [4294967295, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 9, 9, 12, 13, 14, 16, 17, 18, 19, 20, 21]).astype(
                     np.int32)
@@ -430,9 +468,22 @@ class MeshDepthLib():
                     self.zeros_cartesian = torch.zeros([self.batch_size, 24]).type(dtype)
                     self.ones_cartesian = torch.ones([self.batch_size, 24]).type(dtype)
 
+                print()
+                print(f"batch_size:     {batch_size}")
+                print(f"shapedirs_repeat:  {self.shapedirs_repeat.size()}")
+                print(f"B [2]: {self.B} | R [3]: {self.R} | D [4]: {self.D}")
+                print(f"v_template_repeat:  {self.v_template_repeat.size()}")
+                print(f"J_regressor_repeat: {self.J_regressor_repeat.size()}")
+                print(f"posedirs_repeat:    {self.posedirs_repeat.size()}")
+                print(f"weights_repeat:     {self.weights_repeat.size()}")
+                print(f'parents:            {self.parents.shape}')
+                print(f'num_posedirs:       {self.num_posedirs}')
+
+        log_message("2.2.1.1", f"{self.__class__.__name__}.{inspect.stack()[0][3]}", start= False)
 
     #human mesh recovery - kinematic embedding
     def HMR(self, gender_switch, betas_est, Rs_est, root_shift_est, start_incr, end_incr, GPU):
+        print_project_details()
 
         if GPU == False:
             self.dtype = torch.FloatTensor
@@ -502,6 +553,7 @@ class MeshDepthLib():
 
     #PMR - Pressure Map Reconstruction#
     def PMR(self, verts, bed_angle_batch, get_mesh_bottom_dist = True):
+        print_project_details()
         cbs = verts.size()[0] #current batch size
         bend_taxel_loc = 48
 

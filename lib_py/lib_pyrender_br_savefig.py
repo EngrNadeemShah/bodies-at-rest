@@ -57,12 +57,16 @@ import os
 
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvasAgg
 
+import sys
+sys.path.insert(0, '../lib_py')
+from utils import *
 
 
 
 class pyRenderMesh():
     def __init__(self, render):
 
+        print_project_details()
         # terms = 'f', 'frustum', 'background_image', 'overdraw', 'num_channels'
         # dterms = 'vc', 'camera', 'bgcolor'
         self.first_pass = True
@@ -127,6 +131,7 @@ class pyRenderMesh():
 
 
     def get_3D_pmat_markers(self, pmat, angle = 60.0, solidcolor = False):
+        print_project_details()
 
         pmat_reshaped = pmat.reshape(64, 27)
 
@@ -192,6 +197,7 @@ class pyRenderMesh():
 
 
     def get_human_mesh_parts(self, smpl_verts, smpl_faces, viz_type = None, segment_limbs = False):
+        print_project_details()
 
         if segment_limbs == True:
             if viz_type == 'arm_penetration':
@@ -237,6 +243,7 @@ class pyRenderMesh():
                                     pc = None, pmat = None, smpl_render_points = False, markers = None,
                                     dropout_variance=None, color_im = None, tf_corners = None, current_pose_type_ct = None,
                                     participant = None):
+        print_project_details()
 
         pmat *= 0.75
         pmat[pmat>0] += 10
@@ -576,6 +583,7 @@ class pyRenderMesh():
     def render_mesh_pc_bed_pyrender_everything_synth(self, smpl_verts, smpl_faces, camera_point, bedangle, RESULTS_DICT,
                                     smpl_verts_gt = None, pmat = None, smpl_render_points = False, markers = None,
                                     dropout_variance=None, tf_corners = None, save_name = 'test_synth'):
+        print_project_details()
 
         pmat *= 0.75
         pmat[pmat>0] += 10

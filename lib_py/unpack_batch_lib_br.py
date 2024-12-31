@@ -18,6 +18,8 @@ sys.path.insert(0, '../lib_py')
 
 from kinematics_lib_br import KinematicsLib
 from preprocessing_lib_br import PreprocessingLib
+from utils import *
+import inspect
 
 # PyTorch libraries
 import argparse
@@ -52,10 +54,18 @@ class UnpackBatchLib():
 
 
     def unpack_batch(self, batch, is_training, model, CTRL_PNL):
+        log_message("2.3.1", f"{self.__class__.__name__}.{inspect.stack()[0][3]}", start = True)
+        print_project_details()
 
         INPUT_DICT = {}
         adj_ext_idx = 0
         # 0:72: positions.
+
+        print(f"batch (type):       {type(batch)}")
+        print(f"batch (len):        {len(batch)}")
+        print(f"batch[0]:           {batch[0].shape} | {type(batch[0])}")
+        print(f"batch[1]:           {batch[1].shape} | {type(batch[1])}")
+
         batch.append(batch[1][:, 72:82])  # betas
         batch.append(batch[1][:, 82:154])  # angles
         batch.append(batch[1][:, 154:157])  # root pos
@@ -64,6 +74,7 @@ class UnpackBatchLib():
         batch.append(batch[1][:, 160:161])  # mass, kg
         batch.append(batch[1][:, 161:162])  # height, kg
 
+        print(f"CTRL_PNL['adjust_ang_from_est'] == {CTRL_PNL['adjust_ang_from_est']}")
         if CTRL_PNL['adjust_ang_from_est'] == True:
             adj_ext_idx += 3
             batch.append(batch[1][:, 162:172]) #betas est
@@ -80,7 +91,10 @@ class UnpackBatchLib():
             extra_smpl_angles = None
             extra_targets = None
 
+        print(f"extra_smpl_angles:  {extra_smpl_angles}")
+        print(f"extra_targets:      {extra_targets}")
 
+        print(f"CTRL_PNL['depth_map_labels'] == {CTRL_PNL['depth_map_labels']}")
         if CTRL_PNL['depth_map_labels'] == True:
             if CTRL_PNL['depth_map_labels_test'] == True or is_training == True:
                 batch.append(batch[0][:, CTRL_PNL['num_input_channels_batch0'], : ,:]) #mesh depth matrix
@@ -99,7 +113,9 @@ class UnpackBatchLib():
 
 
         #here perform synthetic calibration noise over pmat and sobel filtered pmat.
+        print(f"CTRL_PNL['cal_noise'] == {CTRL_PNL['cal_noise']}")
         if CTRL_PNL['cal_noise'] == True:
+            print(f"x_images_.shape: {x_images_.shape}")
             x_images_ = PreprocessingLib().preprocessing_add_calibration_noise(x_images_,
                                                                                           pmat_chan_idx = (CTRL_PNL['num_input_channels_batch0']-2),
                                                                                           norm_std_coeffs = CTRL_PNL['norm_std_coeffs'],
@@ -107,10 +123,13 @@ class UnpackBatchLib():
                                                                                           noise_amount = CTRL_PNL['cal_noise_amt'],
                                                                                           normalize_per_image = CTRL_PNL['normalize_per_image'])
 
+            print(f"images_up_non_tensor.shape: {images_up_non_tensor.shape}")
 
         #print np.shape(images_up_non_tensor)
 
+        print(f"is_training == {is_training}")
         if is_training == True: #only add noise to training images
+            print(f"images_up_non_tensor.shape: {images_up_non_tensor.shape}")
             if CTRL_PNL['cal_noise'] == False:
                 x_images_ = PreprocessingLib().preprocessing_add_image_noise(np.array(x_images_),
                                                                                     pmat_chan_idx = (CTRL_PNL['num_input_channels_batch0']-2),
@@ -119,8 +138,10 @@ class UnpackBatchLib():
                 x_images_ = PreprocessingLib().preprocessing_add_image_noise(np.array(x_images_),
                                                                                     pmat_chan_idx = (CTRL_PNL['num_input_channels_batch0']-1),
                                                                                     norm_std_coeffs = CTRL_PNL['norm_std_coeffs'])
+            print(f"images_up_non_tensor.shape: {images_up_non_tensor.shape}")
 
         x_images_ = PreprocessingLib().preprocessing_pressure_map_upsample(x_images_, multiple=2)
+        print(f"x_images_.shape: {np.shape(x_images_)}")
 
         x_images_ = np.array(x_images_)   # this line is added by Nadeem
         x_images = Variable(torch.Tensor(x_images_).type(CTRL_PNL['dtype']), requires_grad=False)
@@ -145,6 +166,7 @@ class UnpackBatchLib():
         y_true_synth_real_switch = Variable(batch[6].type(CTRL_PNL['dtype']), requires_grad=is_training)
 
         OUTPUT_EST_DICT = {}
+        print(f"CTRL_PNL['adjust_ang_from_est'] == {CTRL_PNL['adjust_ang_from_est']}")
         if CTRL_PNL['adjust_ang_from_est'] == True:     # False in our case, therefore OUTPUT_EST_DICT remains empty
             OUTPUT_EST_DICT['betas'] = Variable(batch[9].type(CTRL_PNL['dtype']), requires_grad=is_training)
             OUTPUT_EST_DICT['angles'] = Variable(extra_smpl_angles.type(CTRL_PNL['dtype']), requires_grad=is_training)
@@ -152,6 +174,7 @@ class UnpackBatchLib():
             if CTRL_PNL['full_body_rot'] == True:
                 OUTPUT_EST_DICT['root_atan2'] = Variable(batch[12].type(CTRL_PNL['dtype']), requires_grad=is_training)
 
+        print(f"CTRL_PNL['depth_map_labels'] == {CTRL_PNL['depth_map_labels']}")
         if CTRL_PNL['depth_map_labels'] == True:        # False in our case
             if CTRL_PNL['depth_map_labels_test'] == True or is_training == True:
                 INPUT_DICT['batch_mdm'] = batch[9+adj_ext_idx].type(CTRL_PNL['dtype'])
@@ -160,9 +183,12 @@ class UnpackBatchLib():
             INPUT_DICT['batch_mdm'] = None
             INPUT_DICT['batch_cm'] = None
 
+        print(f"INPUT_DICT['batch_mdm']: {INPUT_DICT['batch_mdm']}")
+        print(f"INPUT_DICT['batch_cm']:  {INPUT_DICT['batch_cm']}")
 
         #print images_up.size(), CTRL_PNL['num_input_channels_batch0']
 
+        print(f"CTRL_PNL['omit_cntct_sobel'] == {CTRL_PNL['omit_cntct_sobel']}")
         if CTRL_PNL['omit_cntct_sobel'] == True:        # False in our case
             x_images[:, 0, :, :] *= 0
 
@@ -173,6 +199,7 @@ class UnpackBatchLib():
 
 
 
+        print(f"CTRL_PNL['use_hover'] == {CTRL_PNL['use_hover']}")
         if CTRL_PNL['use_hover'] == False and CTRL_PNL['adjust_ang_from_est'] == True:      # False in our case
             x_images[:, 1, :, :] *= 0
 
@@ -192,6 +219,8 @@ class UnpackBatchLib():
 
         INPUT_DICT['x_images'] = x_images.data
         INPUT_DICT['y_true_markers_xyz'] = y_true_markers_xyz.data
+
+        log_message("2.3.1", f"{self.__class__.__name__}.{inspect.stack()[0][3]}", start = False)
 
         return scores, INPUT_DICT, OUTPUT_DICT
 

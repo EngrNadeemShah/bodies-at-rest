@@ -32,6 +32,10 @@ import torch.optim as optim
 #from torchvision import transforms
 from torch.autograd import Variable
 
+import inspect
+sys.path.insert(0, '../lib_py')
+from lib_py.utils import *
+
 MAT_WIDTH = 0.762 #metres
 MAT_HEIGHT = 1.854 #metres
 MAT_HALF_WIDTH = MAT_WIDTH/2
@@ -56,11 +60,12 @@ def load_pickle(filename):
 class TensorPrepLib():
 
     def load_files_to_database(self, database_file, creation_type, verbose = False, reduce_data = False, test = False):
-        # load in the training or testing files.  This may take a while.
-       # print "GOT HERE!!", database_file
+        log_message("2.1.1", inspect.stack()[0][3], start=True)
+        print_project_details()
+        print(f"databse_file: {database_file}")
+
         dat = None
         for some_subject in database_file:
-            #print creation_type, some_subject, 'some subject'
             if creation_type in some_subject:
                 dat_curr = load_pickle(some_subject)
                 for key in dat_curr:
@@ -99,27 +104,42 @@ class TensorPrepLib():
                 pass
 
         if dat is not None and verbose == True:
-            for key in dat:
-                print('all data keys and shape', key, np.array(dat[key]).shape)
+            print('_'*80)
+            print(f"\033[1m{'Database Summary':^80}\033[0m")
+            for i, (key, value) in enumerate(dat.items()):
+                print(f'({i+1:02d}): {key: <16}: {np.shape(value)}')
+            print('_'*80)
+
+        log_message("2.1.1", inspect.stack()[0][3], start=False)
         return dat
 
     def prep_images(self, im_list, dat_f, dat_m, num_repeats):
+        log_message("2.1.2", inspect.stack()[0][3], start=True)
+        print_project_details()
         for dat in [dat_f, dat_m]:
             if dat is not None:
                 for entry in range(len(dat['images'])):
                     for i in range(num_repeats):
                         im_list.append(dat['images'][entry])
+
+        print(f"np.shape(im_list): {np.shape(im_list)}")
+        log_message("2.1.2", inspect.stack()[0][3], start=False)
         return im_list
 
     def prep_depth_contact(self, depth_contact_list, dat_f, dat_m, num_repeats):
+        log_message("2.1.4", inspect.stack()[0][3], start=True)
+        print_project_details()
         for dat in [dat_f, dat_m]:
             if dat is not None:
                 for entry in range(len(dat['images'])):
                     for i in range(num_repeats):
                         depth_contact_list.append([dat['mesh_depth'][entry], dat['mesh_contact'][entry], ])
+        log_message("2.1.4", inspect.stack()[0][3], start=False)
         return depth_contact_list
 
     def prep_depth_contact_input_est(self, depth_contact_input_est_list, dat_f, dat_m, num_repeats):
+        log_message("2.1.5", inspect.stack()[0][3], start=True)
+        print_project_details()
         for dat in [dat_f, dat_m]:
             if dat is not None:
                 for entry in range(len(dat['images'])):
@@ -131,9 +151,12 @@ class TensorPrepLib():
                         mdm_est_neg *= -1
                         #depth_contact_input_est_list.append([dat['mdm_est'][entry], dat['cm_est'][entry], ])
                         depth_contact_input_est_list.append([mdm_est_pos, mdm_est_neg, dat['cm_est'][entry]*100, ])
+        log_message("2.1.5", inspect.stack()[0][3], start=False)
         return depth_contact_input_est_list
 
     def append_input_depth_contact(self, train_xa, CTRL_PNL, mesh_depth_contact_maps_input_est = None, mesh_depth_contact_maps = None):
+        log_message("2.1.7", inspect.stack()[0][3], start=True)
+        print_project_details()
         if CTRL_PNL['incl_pmat_cntct_input'] == True:
             train_contact = np.copy(train_xa[:, 0:1, :, :]) #get the pmat contact map
             train_contact[train_contact > 0] = 100.
@@ -142,20 +165,31 @@ class TensorPrepLib():
             mesh_depth_contact_maps_input_est = np.array(mesh_depth_contact_maps_input_est)
             train_xa = np.concatenate((mesh_depth_contact_maps_input_est, train_xa), axis = 1)
 
-        print(np.shape(train_xa), CTRL_PNL['incl_pmat_cntct_input'])
         if CTRL_PNL['incl_pmat_cntct_input'] == True:
             train_xa = np.concatenate((train_contact, train_xa), axis=1)
 
-        print(np.shape(train_xa))
         if CTRL_PNL['depth_map_labels'] == True:
             mesh_depth_contact_maps = np.array(mesh_depth_contact_maps) #GROUND TRUTH
             train_xa = np.concatenate((train_xa, mesh_depth_contact_maps), axis=1)
 
-        print("TRAIN XA SHAPE", np.shape(train_xa))
-
+        print(f"train_xa.shape: {train_xa.shape}")
+        log_message("2.1.7", inspect.stack()[0][3], start=False)
         return train_xa
 
     def prep_labels(self, y_flat, dat, num_repeats, z_adj, gender, is_synth, loss_vector_type, initial_angle_est, full_body_rot = False):
+        log_message("2.1.9", inspect.stack()[0][3], start=True)
+        print_project_details()
+
+        print("_"*80)
+        print(f"y_flat len:         {len(y_flat)}")
+        print(f"z_adj:              {z_adj}")
+        print(f"genger:             {gender}")
+        print(f"is_synth:           {is_synth}")
+        print(f"loss_vector_type:   {loss_vector_type}")
+        print(f"initial_angle_est:  {initial_angle_est}")
+        print(f"full_body_rot:      {full_body_rot}")
+        print("_"*80)
+
         if gender == "f":
             g1 = 1
             g2 = 0
@@ -168,6 +202,9 @@ class TensorPrepLib():
             s1 = 0
         z_adj_all = np.array(24 * [0.0, 0.0, z_adj*1000])
         z_adj_one = np.array(1 * [0.0, 0.0, z_adj*1000])
+
+        print(f"z_adj_all:      {z_adj_all}")
+        print(f"z_adj_one:      {z_adj_one}")
 
         if is_synth == True and loss_vector_type != 'direct':
             if dat is not None:
@@ -278,10 +315,14 @@ class TensorPrepLib():
                         y_flat.append(c)
 
 
+        print(f"np.shape(y_flat): {np.shape(y_flat)}")
+        log_message("2.1.9", inspect.stack()[0][3], start=False)
         return y_flat
 
 
     def normalize_network_input(self, x, CTRL_PNL):
+        log_message("2.1.8", inspect.stack()[0][3], start=True)
+        print_project_details()
 
         if CTRL_PNL['depth_map_input_est'] == True:
             normalizing_std_constants = CTRL_PNL['norm_std_coeffs']
@@ -309,9 +350,12 @@ class TensorPrepLib():
             #for i in range(x.shape[0]):
             #    print torch.m
 
+        log_message("2.1.8", inspect.stack()[0][3], start=False)
         return x
 
     def normalize_wt_ht(self, y, CTRL_PNL):
+        log_message("2.1.10", inspect.stack()[0][3], start=True)
+        print_project_details()
         #normalizing_std_constants = [1./30.216647403349857,
         #                             1./14.629298141231091]
 
@@ -324,4 +368,5 @@ class TensorPrepLib():
 
 
 
+        log_message("2.1.10", inspect.stack()[0][3], start=False)
         return y

@@ -58,12 +58,16 @@ def load_pickle(filename):
 
 import os
 
+import sys
+sys.path.insert(0, '../lib_py')
+from utils import *
 
 
 
 class pyRenderMesh():
     def __init__(self, render):
 
+        print_project_details()
         # terms = 'f', 'frustum', 'background_image', 'overdraw', 'num_channels'
         # dterms = 'vc', 'camera', 'bgcolor'
         self.first_pass = True
@@ -120,6 +124,7 @@ class pyRenderMesh():
 
 
     def get_3D_pmat_markers(self, pmat, angle = 60.0):
+        print_project_details()
 
         pmat_reshaped = pmat.reshape(64, 27)
 
@@ -182,6 +187,7 @@ class pyRenderMesh():
 
 
     def reduce_by_cam_dir(self, vertices, faces, camera_point, transform):
+        print_project_details()
 
         vertices = np.array(vertices)
         faces = np.array(faces)
@@ -227,6 +233,7 @@ class pyRenderMesh():
 
 
     def get_triangle_area_vert_weight(self, verts, faces, verts_idx_red):
+        print_project_details()
 
         #first we need all the triangle areas
         tri_verts = verts[faces, :]
@@ -296,6 +303,7 @@ class pyRenderMesh():
 
 
     def get_triangle_norm_to_vert(self, verts, faces, verts_idx_red):
+        print_project_details()
 
         tri_norm = np.cross(verts[np.array(faces)[:, 1], :] - verts[np.array(faces)[:, 0], :],
                             verts[np.array(faces)[:, 2], :] - verts[np.array(faces)[:, 0], :])
@@ -351,6 +359,7 @@ class pyRenderMesh():
 
 
     def downspl_pc_get_normals(self, pc, camera_point):
+        print_project_details()
 
         #for i in range(3):
         #    print np.min(pc[:, i]), np.max(pc[:, i])
@@ -382,6 +391,7 @@ class pyRenderMesh():
         return points, normals
 
     def plot_mesh_norms(self, verts, verts_norm):
+        print_project_details()
 
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(verts)
@@ -391,6 +401,7 @@ class pyRenderMesh():
 
 
     def get_human_mesh_parts(self, smpl_verts, smpl_faces, viz_type = None, segment_limbs = False):
+        print_project_details()
 
         if segment_limbs == True:
             if viz_type == 'arm_penetration':
@@ -432,6 +443,7 @@ class pyRenderMesh():
 
 
     def compare_pc_to_voxelmesh(self, smpl_verts, smpl_faces, gt_points, pmat, RESULTS_DICT, synth = False):
+        print_project_details()
 
         #gt_points[:, 2] -= 1.0
         #cut off things that aren't overlaying the bed
@@ -753,6 +765,7 @@ class pyRenderMesh():
     def render_mesh_pc_bed_pyrender_everything(self, smpl_verts, smpl_faces, camera_point, bedangle, RESULTS_DICT,
                                     pc = None, pmat = None, smpl_render_points = False, markers = None,
                                     dropout_variance=None):
+        print_project_details()
 
         #smpl_verts[:, 2] += 0.5
         #pc[:, 2] += 0.5
@@ -1362,6 +1375,7 @@ class pyRenderMesh():
     def render_mesh_pc_bed_pyrender_everything_synth(self, smpl_verts, smpl_faces, camera_point, bedangle, RESULTS_DICT,
                                     smpl_verts_gt, pmat = None, markers = None,
                                     dropout_variance=None, render = True):
+        print_project_details()
 
 
         #segment_limbs = True

@@ -27,6 +27,10 @@ import torch.optim as optim
 #from torchvision import transforms
 from torch.autograd import Variable
 
+import sys
+sys.path.insert(0, '../lib_py')
+from utils import *
+
 MAT_WIDTH = 0.762 #metres
 MAT_HEIGHT = 1.854 #metres
 MAT_HALF_WIDTH = MAT_WIDTH/2
@@ -44,6 +48,7 @@ HIGH_TAXEL_THRESH_Y = (NUMOFTAXELS_Y - 1)
 class KinematicsLib():
 
     def batch_rodrigues(self, theta):
+        print_project_details()
         # theta N x 3
         batch_size = theta.shape[0]
 
@@ -84,6 +89,7 @@ class KinematicsLib():
         return rotMat
 
     def batch_euler_to_R(self, theta, zeros_cartesian, ones_cartesian):
+        print_project_details()
         batch_size_current = theta.size()[0]
 
         cosx = torch.cos(theta[:, :, 0])
@@ -119,6 +125,7 @@ class KinematicsLib():
         return R
 
     def batch_global_rigid_transformation(self, Rs, Js, parent, GPU, rotate_base=False):
+        print_project_details()
         N = Rs.shape[0]
         if rotate_base:
             np_rot_x = np.array([[1, 0, 0], [0, -1, 0], [0, 0, -1]], dtype=np.float)
@@ -164,6 +171,7 @@ class KinematicsLib():
 
 
     def batch_dir_cos_angles_from_euler_angles(self, theta, zeros_cartesian, ones_cartesian):
+        print_project_details()
         batch_size_current = theta.size()[0]
 
         cosx = torch.cos(theta[:, :, 0])
@@ -246,6 +254,7 @@ class KinematicsLib():
 
 
     def batch_euler_angles_from_dir_cos_angles(self, theta_all):
+        print_project_details()
 
         angle = torch.norm(theta_all + 1e-8, p=2, dim=2)
 

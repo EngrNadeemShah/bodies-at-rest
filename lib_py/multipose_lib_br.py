@@ -2,6 +2,10 @@
 import numpy as np
 import cv2
 
+import sys
+sys.path.insert(0, '../lib_py')
+from utils import *
+
 HEAD_BEND_TAXEL = 41 #measured from the bottom of the pressure mat
 LEGS_BEND1_TAXEL = 37 #measured from the bottom of the pressure mat
 LEGS_BEND2_TAXEL = 20 #measured from the bottom of the pressure mat
@@ -11,9 +15,11 @@ HENRY_EVANS = True
 
 class ArTagLib():
     def __init__(self, head_taxel_offset = 0):
+        print_project_details()
         self.head_taxel_offset = head_taxel_offset
 
     def color_2D_markers(self, markers_c, new_K_kin):
+        print_project_details()
 
         if HENRY_EVANS == True:
             if markers_c[0] is None:
@@ -34,6 +40,7 @@ class ArTagLib():
         return u_c, v_c
 
     def color_2D_markers_drop(self, markers_c, new_K_kin):
+        print_project_details()
 
         if HENRY_EVANS == True:
             if markers_c[0] is None:
@@ -55,6 +62,7 @@ class ArTagLib():
         return u_c_drop, v_c_drop, markers_c_drop
 
     def thermal_2D_markers(self, markers_c, new_K_thr, R_thermal, T_thermal):
+        print_project_details()
         if HENRY_EVANS == True:
             if markers_c[0] is None:
                 markers_c = [np.array([ 1.22181549, -0.42804009,  1.587955  ]), np.array([1.2176198 , 0.37355771, 1.59150983]), np.array([-1.15200846, -0.4033413 ,  1.52632663]), np.array([-1.16417695,  0.39847735,  1.56105968])]
@@ -79,6 +87,7 @@ class ArTagLib():
 
 
     def p_mat_geom(self, markers_c_drop, new_K_kin, pressure_im_size_required, bed_state, half_w_half_l):
+        print_project_details()
 
         if HENRY_EVANS == True:
             if markers_c_drop[0] is None:
@@ -247,6 +256,7 @@ class ArTagLib():
 class VizLib():
 
     def assemble_A_2nx9(self, point, point_new, current = None):
+        print_project_details()
         addition = np.array([[point[0], point[1], 1, 0, 0, 0, -point_new[0]*point[0], -point_new[0]*point[1], -point_new[0]],
                             [0, 0, 0, point[0], point[1], 1, -point_new[1]*point[0], -point_new[1]*point[1], -point_new[1]]])
 
@@ -257,6 +267,7 @@ class VizLib():
             return np.concatenate((current, addition), axis = 0)
 
     def get_new_K_kin_homography(self, alpha_vert, alpha_horiz, new_K_kin, flip_vert = 1):
+        print_project_details()
         #alpha_vert = 0.8
         #print alpha_vert, alpha_horiz, 'ALPHAs'
 
@@ -331,6 +342,7 @@ class VizLib():
 
     def color_image(self, color_orig, kcam, new_K_kin, u_c=None, v_c=None, u_c_drop=None, v_c_drop=None,
                     u_c_pmat=None, v_c_pmat=None, alpha_vert = 1.0, alpha_horiz = 1.0):
+        print_project_details()
         # COLOR
         color_reshaped = cv2.undistort(color_orig, kcam.K, kcam.D, None, new_K_kin)
         h = self.get_new_K_kin_homography(alpha_vert, alpha_horiz, new_K_kin)
@@ -371,6 +383,7 @@ class VizLib():
 
 
     def depth_image(self, depth_r_orig, u_c = None, v_c = None):
+        print_project_details()
         # DEPTH'
         if HENRY_EVANS == True:
             depth_r_reshaped = depth_r_orig / 3 - 300
@@ -393,6 +406,7 @@ class VizLib():
         return depth_r_reshaped, depth_r_reshaped.shape, depth_r_orig
 
     def thermal_image(self, thermal_orig, tcam, new_K_thr, new_K_kin, color_size, u_c, v_c, u_t=None, v_t=None, alpha_vert = 1.0, alpha_horiz = 1.0):
+        print_project_details()
         # THERMAL
 
         mapx,mapy = cv2.initUndistortRectifyMap(tcam.K, tcam.D, None, new_K_thr,(thermal_orig.shape[1],thermal_orig.shape[0]),5)
@@ -455,6 +469,7 @@ class VizLib():
 
 
     def pressure_image(self, pressure_orig, pressure_orig_size, pressure_im_size_required, color_size, u_c_drop, v_c_drop, u_c_pmat, v_c_pmat, u_p_bend, v_p_bend):
+        print_project_details()
 
 
 

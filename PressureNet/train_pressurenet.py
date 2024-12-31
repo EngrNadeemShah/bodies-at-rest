@@ -32,6 +32,15 @@ def load_pickle(filename):
 
 import sys
 sys.path.insert(0, '../lib_py')
+# import os
+
+# # Add the parent directory of lib_py to sys.path
+# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+
+from lib_py.utils import *
+import inspect
+log_message("1", inspect.stack()[0][1], start = True)
 
 # Pose Estimation Libraries
 from visualization_lib_br import VisualizationLib
@@ -80,6 +89,8 @@ class PhysicalTrainer():
         '''Opens the specified pickle files to get the combined dataset:
         This dataset is a dictionary of pressure maps with the corresponding
         3d position and orientation of the markers associated with it.'''
+        log_message("2", f"{self.__class__.__name__}.{inspect.stack()[0][3]}", start = True)
+        print_project_details()
 
 
         self.CTRL_PNL = {}
@@ -124,6 +135,12 @@ class PhysicalTrainer():
         self.CTRL_PNL['double_network_size'] = False
         self.CTRL_PNL['first_pass'] = True
         self.CTRL_PNL['align_procr'] = False
+
+        print("_" * 80)
+        print(f"\033[1m{'Control Panel Settings':^80}\033[0m")
+        for idx, (key, value) in enumerate(self.CTRL_PNL.items()):
+            print(f"({idx:02d}) {key:<22}: {value}")
+        print("_" * 80)
 
         if GPU == True:
             torch.cuda.set_device(self.opt.device)
@@ -192,13 +209,19 @@ class PhysicalTrainer():
         else:
             reduce_data = False
 
+        print(f"_" * 80)
+        print(f"{'T R A I N I N G   D A T A   S T A R T E D':^80}")
+        print(f"_" * 80)
+
         dat_f_synth = TensorPrepLib().load_files_to_database(training_database_file_f, creation_type = 'synth', reduce_data = reduce_data)
         dat_m_synth = TensorPrepLib().load_files_to_database(training_database_file_m, creation_type = 'synth', reduce_data = reduce_data)
 
+        print(f"\nLength of dat_f_synth (database)\t: {len(dat_f_synth)}")
 
         self.train_x_flat = []  # Initialize the testing pressure mat list
         self.train_x_flat = TensorPrepLib().prep_images(self.train_x_flat, dat_f_synth, dat_m_synth, num_repeats = 1)
         self.train_x_flat = list(np.clip(np.array(self.train_x_flat) * float(self.CTRL_PNL['pmat_mult']), a_min=0, a_max=100))
+        print(f"\nnp.shape(train_x_flat) (images):  {np.shape(self.train_x_flat)}")
 
         if self.CTRL_PNL['cal_noise'] == False:
             self.train_x_flat = PreprocessingLib().preprocessing_blur_images(self.train_x_flat, self.mat_size, sigma=0.5)
@@ -254,13 +277,21 @@ class PhysicalTrainer():
 
         self.train_y = torch.Tensor(np.array(train_y_flat))  # torch.Tensor(train_y_flat) changed by Nadeem
 
-        print(self.train_x.shape, 'Input training tensor shape')
-        print(self.train_y.shape, 'Output training tensor shape')
+        print(f"train_x: {self.train_x.shape}")
+        print(f"train_y: {self.train_y.shape}")
+
+        print(f"_" * 80)
+        print(f"{'T R A I N I N G   D A T A   F I N I S H E D':^80}")
+        print(f"_" * 80)
 
 
 
 
         #################################### PREP TESTING DATA ##########################################
+        print(f"_" * 80)
+        print(f"{'T E S T I N G   D A T A   S T A R T E D':^80}")
+        print(f"_" * 80)
+
         # load in the test file
         test_dat_f_synth = TensorPrepLib().load_files_to_database(testing_database_file_f, creation_type = 'synth', reduce_data = reduce_data)
         test_dat_m_synth = TensorPrepLib().load_files_to_database(testing_database_file_m, creation_type = 'synth', reduce_data = reduce_data)
@@ -342,6 +373,9 @@ class PhysicalTrainer():
         print(f"test_y_tensor:  {self.test_y.shape}")
 
 
+        print(f"_" * 80)
+        print(f"{'T E S T I N G   D A T A   F I N I S H E D':^80}")
+        print(f"_" * 80)
 
 
         self.save_name = '_' + str(opt.mod) + '_' + opt.losstype + \
@@ -379,6 +413,7 @@ class PhysicalTrainer():
         self.train_val_losses['train_loss'] = []
         self.train_val_losses['val_loss'] = []
         self.train_val_losses['epoch_ct'] = []
+        log_message("2.1", f"{self.__class__.__name__}.{inspect.stack()[0][3]}", start = False)
 
 
 
@@ -386,6 +421,8 @@ class PhysicalTrainer():
 
     def init_convnet_train(self):
 
+        log_message("2.2", f"{self.__class__.__name__}.{inspect.stack()[0][3]}", start = True)
+        print_project_details()
         self.train_dataset = torch.utils.data.TensorDataset(self.train_x, self.train_y)
         self.train_loader = torch.utils.data.DataLoader(self.train_dataset, self.CTRL_PNL['batch_size'], shuffle=self.CTRL_PNL['shuffle'])
 
@@ -418,8 +455,12 @@ class PhysicalTrainer():
         #self.model = torch.load(self.CTRL_PNL['convnet_fp_prefix']+'convnet_anglesDC_synth_184K_128b_x5pmult_1.0rtojtdpth_tnh_htwt_calnoise_100e_00002lr.pt', map_location={'cuda:2':'cuda:'+str(DEVICE)})
         #self.model = torch.load(self.CTRL_PNL['convnet_fp_prefix']+'convnet_2_anglesDC_184000ct_128b_x1pm_0.5rtojtdpth_depthestin_angleadj_tnh_clns10p_100e_2e-05lr.pt', map_location='cpu')
 
+        print("_" * 80)
+        print(f"\033[1m{'Model Architecture':^80}\033[0m")
+        # print(f"model.meshDepthLib.parents: {self.model.meshDepthLib.parents}")
         pp = 0
-        for p in list(self.model.parameters()):
+        for i, p in enumerate(list(self.model.parameters())):
+            print(f"({i+1:02d}) {np.array(p.size())}")
             nn = 1
             for s in list(p.size()):
                 nn = nn * s
@@ -435,35 +476,44 @@ class PhysicalTrainer():
 
         self.optimizer = optim.Adam(self.model.parameters(), lr=learning_rate, weight_decay=0.0005) #start with .00005
 
+        print("_" * 80)
+        print(f"\033[1m{'T R A I N I N G   S T A R T E D':^80}\033[0m")
+        print("_" * 80)
+        print(f"Optimizer:  {self.optimizer}")
+
         # train the model one epoch at a time
         for epoch in range(1, self.CTRL_PNL['num_epochs'] + 1):
+            print("_" * 80)
+            epoch_ = "E P O C H # " + str(epoch)
+            print(f"\033[1m{epoch_:^80}\033[0m")
+            print("_" * 80)
             #torch.save(self.model, self.CTRL_PNL['convnet_fp_prefix']+'convnet'+self.save_name+'_'+str(epoch)+'e'+'_'+str(learning_rate)+'lr.pt')
 
             self.t1 = time.time()
             self.train_convnet(epoch)
 
-            try:
-                self.t2 = time.time() - self.t1
-            except:
-                self.t2 = 0
-            print('Time taken by epoch',epoch,':',self.t2,' seconds')
+        #     try:
+        #         self.t2 = time.time() - self.t1
+        #     except:
+        #         self.t2 = 0
+        #     print('Time taken by epoch',epoch,':',self.t2,' seconds')
 
-            if epoch == self.CTRL_PNL['num_epochs'] or epoch == 10 or epoch == 20 or epoch == 30 or epoch == 40 or epoch == 50 or epoch == 60 or epoch == 70 or epoch == 80 or epoch == 90:
+        #     if epoch == self.CTRL_PNL['num_epochs'] or epoch == 10 or epoch == 20 or epoch == 30 or epoch == 40 or epoch == 50 or epoch == 60 or epoch == 70 or epoch == 80 or epoch == 90:
 
-                if self.opt.go200 == True:
-                    epoch_log = epoch + 100
-                else:
-                    epoch_log = epoch + 0
+        #         if self.opt.go200 == True:
+        #             epoch_log = epoch + 100
+        #         else:
+        #             epoch_log = epoch + 0
 
-                print("saving convnet.")
-                torch.save(self.model, self.CTRL_PNL['convnet_fp_prefix']+'convnet'+self.save_name+'_'+str(epoch_log)+'e'+'_'+str(learning_rate)+'lr.pt')
-                print("saved convnet.")
-                pkl.dump(self.train_val_losses,open(self.CTRL_PNL['convnet_fp_prefix']+'convnet_losses'+self.save_name+'_'+str(epoch_log)+'e'+'_'+str(learning_rate)+'lr.p', 'wb'))
-                print("saved losses.")
+        #         print("saving convnet.")
+        #         torch.save(self.model, self.CTRL_PNL['convnet_fp_prefix']+'convnet'+self.save_name+'_'+str(epoch_log)+'e'+'_'+str(learning_rate)+'lr.pt')
+        #         print("saved convnet.")
+        #         pkl.dump(self.train_val_losses,open(self.CTRL_PNL['convnet_fp_prefix']+'convnet_losses'+self.save_name+'_'+str(epoch_log)+'e'+'_'+str(learning_rate)+'lr.p', 'wb'))
+        #         print("saved losses.")
 
-        print(self.train_val_losses, 'trainval')
-        # Save the model (architecture and weights)
-
+        # print(self.train_val_losses, 'trainval')
+        # # Save the model (architecture and weights)
+        log_message("2.2", f"{self.__class__.__name__}.{inspect.stack()[0][3]}", start = False)
 
 
 
@@ -474,23 +524,59 @@ class PhysicalTrainer():
         # Some models use different forward passes between train and test
         # time (e.g., any model with Dropout). This puts the model in train mode
         # (as opposed to eval mode) so it knows which one to use.
+        log_message("2.3", f"{self.__class__.__name__}.{inspect.stack()[0][3]}", start = True)
+        print_project_details()
+
         self.model.train()
         self.criterion = nn.L1Loss()
         self.criterion2 = nn.MSELoss()
+        print(f"Loss 01:    {self.criterion}")
+        print(f"Loss 02:    {self.criterion2}")
+
         with torch.autograd.set_detect_anomaly(True):
 
             # This will loop a total = training_images/batch_size times
             for batch_idx, batch in enumerate(self.train_loader):
 
+                print("_" * 80)
+                batch_idx_ = "T R A I N   B A T C H # " + str(batch_idx + 1)
+                print(f"\033[1m{batch_idx_:^80}\033[0m")
+                print("_" * 80)
+
+                # if batch_idx % 10 == 0 or batch_idx == 0:
+                print(f"batch[0].shape: {np.array(batch[0].shape)}")
+                print(f"batch[1].shape: {np.array(batch[1].shape)}")
 
                 self.optimizer.zero_grad()
                 scores, INPUT_DICT, OUTPUT_DICT = \
                     UnpackBatchLib().unpack_batch(batch, is_training=True, model = self.model, CTRL_PNL=self.CTRL_PNL)
                 #print torch.cuda.max_memory_allocated(), '1post train'
+
+                if self.CTRL_PNL['first_pass'] == True or self.CTRL_PNL['first_pass'] == False:
+                    print(f"Scores: {np.shape(scores.cpu().detach().numpy())}\n")
+                    print(f"Input Dictioanry ->")
+                    for i, (k, v) in enumerate(INPUT_DICT.items()):
+                        if isinstance(v, torch.Tensor):
+                            print(f"({i+1:02d}) {k:15}: {np.shape(v.cpu().detach().numpy())}")
+                        elif isinstance(v, np.ndarray):
+                            print(f"({i+1:02d}) {k:15}: {v.shape}")
+                        else:
+                            print(f"({i+1:02d}) {k:15}: {v}")
+
+                    print(f"\nOutput Dictioanry ->")
+                    for i, (k, v) in enumerate(OUTPUT_DICT.items()):
+                        if isinstance(v, torch.Tensor):
+                            print(f"({i+1:02d}) {k:30}: {np.shape(v.cpu().detach().numpy())}")
+                        elif isinstance(v, np.ndarray):
+                            print(f"({i+1:02d}) {k:30}: {v.shape}")
+                        else:
+                            print(f"({i+1:02d}) {k:30}: {v}")
+
                 self.CTRL_PNL['first_pass'] = False
 
                 scores_zeros = Variable(torch.Tensor(np.zeros((batch[0].shape[0], scores.size()[1]))).type(dtype),
                                         requires_grad=True)
+                print(f"scores_zeros: {np.shape(scores_zeros)}")
 
                 if self.CTRL_PNL['full_body_rot'] == True:
                     OSA = 6
@@ -498,25 +584,30 @@ class PhysicalTrainer():
                         loss_bodyrot = self.criterion(scores[:, 10:16], scores_zeros[:, 10:16]) * self.weight_joints
                     else:
                         loss_bodyrot = self.criterion(scores[:, 10:16], scores_zeros[:, 10:16]) * 0.0
+                    print(f"Loss Body Rot (loss_bodyrot): {loss_bodyrot}")
                     #if self.CTRL_PNL['adjust_ang_from_est'] == True:
                     #    loss_bodyrot *= 0
                 else: OSA = 0
 
                 loss_eucl = self.criterion(scores[:, 10+OSA:34+OSA], scores_zeros[:, 10+OSA:34+OSA])*self.weight_joints
+                print(f"Loss Eucl (loss_eucl): {loss_eucl}")
                 if self.opt.half_shape_wt == True:
                     loss_betas = self.criterion(scores[:, 0:10], scores_zeros[:, 0:10]) * self.weight_joints * 0.5
                 else:
                     loss_betas = self.criterion(scores[:, 0:10], scores_zeros[:, 0:10]) * self.weight_joints
 
+                print(f"Loss Betas (loss_betas): {loss_betas}")
 
                 if self.CTRL_PNL['regr_angles'] == True:
                     loss_angs = self.criterion2(scores[:, 34+OSA:106+OSA], scores_zeros[:, 34+OSA:106+OSA])*self.weight_joints
                     loss = (loss_betas + loss_eucl + loss_bodyrot + loss_angs)
                 else:
                     loss = (loss_betas + loss_eucl + loss_bodyrot)
+                print(f"Loss (loss): {loss}")
 
 
                 #print INPUT_DICT['batch_mdm'].size(), OUTPUT_DICT['batch_mdm_est'].size()
+                print(f"CTRL_PNL['depth_map_labels'] == {self.CTRL_PNL['depth_map_labels']}")
                 if self.CTRL_PNL['depth_map_labels'] == True:
                     hover_map = OUTPUT_DICT['batch_mdm_est'].clone()
                     hover_map[hover_map < 0] = 0
@@ -536,10 +627,15 @@ class PhysicalTrainer():
                 loss.backward()
                 self.optimizer.step()
                 loss *= 1000
+                print(f"Optimizing...")
 
 
+                print(f"\nbatch_idx % opt.log_interval: {batch_idx} % {opt.log_interval} == 0 -> {batch_idx % opt.log_interval == 0}")
                 if batch_idx % opt.log_interval == 0:# and batch_idx > 0:
 
+                    print("_" * 80)
+                    print(f"\033[1m{'E R R O R   S U M M A R Y':^80}\033[0m")
+                    print("_" * 80)
 
                     val_n_batches = 4
                     print(f"Evaluating on {val_n_batches} batches")
@@ -647,9 +743,17 @@ class PhysicalTrainer():
                     self.train_val_losses['train_loss'].append(train_loss)
                     self.train_val_losses['epoch_ct'].append(epoch)
                     self.train_val_losses['val_loss'].append(val_loss)
+        log_message("2.3", f"{self.__class__.__name__}.{inspect.stack()[0][3]}", start = False)
 
 
     def validate_convnet(self, verbose=False, n_batches=None):
+        log_message("2.4", f"{self.__class__.__name__}.{inspect.stack()[0][3]}", start = True)
+        print_project_details()
+
+        print("_" * 80)
+        print(f"\033[1m{'V A L I D A T I N G   S T A R T E D':^80}\033[0m")
+        print("_" * 80)
+
         self.model.eval()
         loss = 0.
         n_examples = 0
@@ -657,6 +761,11 @@ class PhysicalTrainer():
 
         if True:
             for batch_i, batch in enumerate(self.test_loader):
+
+                print("_" * 80)
+                batch_i_ = "V A L I D   B A T C H # " + str(batch_i + 1)
+                print(f"\033[1m{batch_i_:^80}\033[0m")
+                print("_" * 80)
 
                 scores, INPUT_DICT_VAL, OUTPUT_DICT_VAL = \
                     UnpackBatchLib().unpack_batch(batch, is_training=False, model=self.model, CTRL_PNL=self.CTRL_PNL)
@@ -706,6 +815,8 @@ class PhysicalTrainer():
                 #print loss
                 n_examples += self.CTRL_PNL['batch_size']
 
+                print(f"n_batches and (batch_i >= n_batches): {n_batches} and {batch_i >= n_batches} -> (B R E A K   I T:{n_batches and (batch_i >= n_batches)})")
+                print(f"batch_i: {batch_i}")
                 if n_batches and (batch_i >= n_batches):
                     break
 
@@ -726,6 +837,7 @@ class PhysicalTrainer():
                                                       block=False)
 
         #print "loss is:" , loss
+        log_message("2.4", f"{self.__class__.__name__}.{inspect.stack()[0][3]}", start = False)
         return loss
 
 
@@ -911,9 +1023,23 @@ if __name__ == "__main__":
         test_database_file_m.append(data_fp_prefix+'synth/crossed_legs/test_roll0_xl_m_lay_set1both_500'+data_fp_suffix+'.p')
 
 
+    print("_" * 80)
+    print(f"\033[1m{'Command Line Arguments & Their Values':^80}\033[0m")
+    for i, (key, value) in enumerate(opt.__dict__.items()):
+        print(f"({i+1:02d}) {key:16}: {value}")
+    print("_" * 80)
+
     p = PhysicalTrainer(training_database_file_f, training_database_file_m, test_database_file_f, test_database_file_m, opt)
 
     p.init_convnet_train()
 
         #else:
         #    print 'Please specify correct training type:1. HoG_KNN 2. convnet_2'
+
+    print("\nTraining Database File (Female):")
+    print(training_database_file_f[0])
+
+    print("\nTesting Database Files (Female):")
+    print(test_database_file_f[0])
+
+    log_message("1", inspect.stack()[0][1], start = False)

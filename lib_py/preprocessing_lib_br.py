@@ -26,6 +26,10 @@ import torch.optim as optim
 #from torchvision import transforms
 from torch.autograd import Variable
 
+import inspect
+sys.path.insert(0, '../lib_py')
+from lib_py.utils import *
+
 
 MAT_WIDTH = 0.762 #metres
 MAT_HEIGHT = 1.854 #metres
@@ -46,6 +50,7 @@ class PreprocessingLib():
 
 
     def preprocessing_add_image_noise(self, images, pmat_chan_idx, norm_std_coeffs):
+        print_project_details()
 
         queue = np.copy(images[:, pmat_chan_idx:pmat_chan_idx+2, :, :])
         queue[queue != 0] = 1.
@@ -79,6 +84,8 @@ class PreprocessingLib():
 
     def preprocessing_add_calibration_noise(self, images, pmat_chan_idx, norm_std_coeffs, is_training, noise_amount, normalize_per_image):
 
+        log_message("2.3.1", f"{self.__class__.__name__}.{inspect.stack()[0][3]}", start = True)
+        print_project_details()
         if is_training == True:
             variation_amount = float(noise_amount)
 
@@ -156,10 +163,13 @@ class PreprocessingLib():
 
 
 
+        log_message("2.3.1", f"{self.__class__.__name__}.{inspect.stack()[0][3]}", start = False)
         return images
 
 
     def preprocessing_blur_images(self, x_data, mat_size, sigma):
+        log_message("2.1.3", inspect.stack()[0][3], start=True)
+        print_project_details()
 
         x_data_return = []
         for map_index in range(len(x_data)):
@@ -169,6 +179,7 @@ class PreprocessingLib():
 
             x_data_return.append(p_map.flatten())
 
+        log_message("2.1.3", inspect.stack()[0][3], start=False)
         return x_data_return
 
 
@@ -176,9 +187,12 @@ class PreprocessingLib():
 
     def preprocessing_create_pressure_angle_stack(self,x_data, mat_size, CTRL_PNL):
         '''This is for creating a 2-channel input using the height of the bed. '''
+        log_message("2.1.6", inspect.stack()[0][3], start=True)
+        print_project_details()
 
         x_data = np.clip(x_data, 0, 100)
 
+        print(f"mat size: {mat_size}")
 
         p_map_dataset = []
         for map_index in range(len(x_data)):
@@ -206,11 +220,14 @@ class PreprocessingLib():
             #print np.sum(p_map), 'sum after norm'
             p_map_dataset.append([p_map, p_map_inter])
 
+        print(f"np.shape(p_map_dataset.append([p_map, p_map_inter])): {np.shape(p_map_dataset)}")
+        log_message("2.1.6", inspect.stack()[0][3], start=False)
         return p_map_dataset
 
 
     def preprocessing_pressure_map_upsample(self, data, multiple, order=1):
         '''Will upsample an incoming pressure map dataset'''
+        print_project_details()
         p_map_highres_dataset = []
 
 
@@ -232,6 +249,7 @@ class PreprocessingLib():
 
 
     def pad_pressure_mats(self,NxHxWimages):
+        print_project_details()
         padded = np.zeros((NxHxWimages.shape[0],NxHxWimages.shape[1]+20,NxHxWimages.shape[2]+20))
         padded[:,10:74,10:37] = NxHxWimages
         NxHxWimages = padded
@@ -239,6 +257,7 @@ class PreprocessingLib():
 
 
     def preprocessing_per_im_norm(self, images, CTRL_PNL):
+        print_project_details()
 
         if CTRL_PNL['depth_map_input_est'] == True:
             pmat_sum = 1./(torch.sum(torch.sum(images[:, 4, :, :], dim=1), dim=1)/100000.)

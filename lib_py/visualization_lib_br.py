@@ -36,6 +36,10 @@ import torch.optim as optim
 #from torchvision import transforms
 from torch.autograd import Variable
 
+sys.path.insert(0, '../lib_py')
+from utils import log_message, print_project_details
+import inspect
+
 MAT_WIDTH = 0.762 #metres
 MAT_HEIGHT = 1.854 #metres
 MAT_HALF_WIDTH = MAT_WIDTH/2
@@ -53,6 +57,20 @@ HIGH_TAXEL_THRESH_Y = (NUMOFTAXELS_Y - 1)
 class VisualizationLib():
 
     def print_error_train(self, target, score, output_size, loss_vector_type = None, data = None, printerror = True):
+        log_message("1", f"{self.__class__.__name__}.{inspect.stack()[0][3]}", start = True)
+        print_project_details()
+
+        print("_" * 80)
+        print(f"\033[1m{'I N P U T S   T O   P R I N T   E R R O R (fnc)':^80s}\033[0m")
+
+        print(f"Target shape:   {target.shape}  (input_dict)")
+        print(f"Score shape:    {score.shape}   (output_dict - estimated)")
+        print(f"Output size:    {output_size}")
+        print(f"Loss vector:    {loss_vector_type}")
+        print(f"Data:           {data}")
+        print(f"Print error:    {printerror}")
+
+        print("_" * 80)
 
 
 
@@ -75,14 +93,25 @@ class VisualizationLib():
         error_avg_print = np.array([f"{w:.2f}" for w in error_avg.flatten()]).reshape((output_size[0], output_size[1] + 1))
 
 
-        error_avg_print = np.transpose(np.concatenate(([['Average Error for Last Batch', '       ',
-                                                        'Pelvis ', 'L Hip  ', 'R Hip  ', 'Spine 1', 'L Knee ', 'R Knee ',
-                                                        'Spine 2', 'L Ankle', 'R Ankle', 'Spine 3', 'L Foot ', 'R Foot ',
-                                                        'Neck   ', 'L Sh.in', 'R Sh.in', 'Head   ', 'L Sh.ou', 'R Sh.ou',
-                                                        'L Elbow', 'R Elbow', 'L Wrist', 'R Wrist', 'L Hand ', 'R Hand ']], np.transpose(
-            np.concatenate(([['', '', '', ''], [' x, cm ', ' y, cm ', ' z, cm ', '  norm ']], error_avg_print))))))
+        error_avg_print = np.transpose(
+            np.concatenate((
+                [['Average Error for Last Batch', '       ',
+                  'Pelvis ', 'L Hip  ', 'R Hip  ', 'Spine 1', 'L Knee ', 'R Knee ',
+                  'Spine 2', 'L Ankle', 'R Ankle', 'Spine 3', 'L Foot ', 'R Foot ',
+                  'Neck   ', 'L Sh.in', 'R Sh.in', 'Head   ', 'L Sh.ou', 'R Sh.ou',
+                  'L Elbow', 'R Elbow', 'L Wrist', 'R Wrist', 'L Hand ', 'R Hand ']],
+                np.transpose(
+                    np.concatenate((
+                        [['', '', '', ''],
+                         [' x, cm ', ' y, cm ', ' z, cm ', '  norm ']],
+                        error_avg_print))
+                    )
+                ))
+            )
         if printerror == True:
-            print(data, error_avg_print)
+            print(f"data:   {data}")
+            print(f"error_avg:")
+            print(f"{error_avg_print}")
 
 
         error_std = np.std(error, axis=0) / 10
@@ -106,9 +135,11 @@ class VisualizationLib():
         error_norm = np.squeeze(error_norm, axis = 2)
 
         #return error_avg[:,3], error_std[:,3]
+        log_message("1", f"{self.__class__.__name__}.{inspect.stack()[0][3]}", start = False)
         return error_norm, error_avg[:,3], error_std[:,3]
 
     def print_error_val(self, target, score, output_size, loss_vector_type = None, data = None, printerror = True):
+        print_project_details()
 
         if target.shape[1] == 72:
             target = target.reshape(-1, 24, 3)
@@ -185,6 +216,7 @@ class VisualizationLib():
         return error_norm, error_avg[:,3], error_std[:,3]
 
     def visualize_error_from_distance(self, bed_distance, error_norm):
+        print_project_details()
         plt.close()
         fig = plt.figure()
         ax = []
@@ -208,6 +240,7 @@ class VisualizationLib():
                                 pmap_recon = None, cntct_recon = None, hover_recon = None,
                                 pmap_recon_gt=None, cntct_recon_gt = None,
                                 block = False, title = ' '):
+        print_project_details()
 
 
 
@@ -371,6 +404,7 @@ class VisualizationLib():
 
 
     def plot_joint_markers(self, markers, p_map_mult, ax, color):
+        print_project_details()
         if markers is not None:
             if len(np.shape(markers)) == 1:
                 markers = np.reshape(markers, (int(len(markers) / 3), 3))

@@ -9,12 +9,18 @@ import time
 
 import sys
 sys.path.insert(0, '../lib_py')
+# import os
+
+# # Add the parent directory of lib_py to sys.path
+# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'lib_py')))
 
 
 from visualization_lib_br import VisualizationLib
 from kinematics_lib_br import KinematicsLib
 from mesh_depth_lib_br import MeshDepthLib
 
+from utils import print_project_details, log_message
+import inspect
 
 class CNN(nn.Module):
     def __init__(self, out_size, loss_vector_type, batch_size, verts_list, in_channels = 3):
@@ -27,6 +33,16 @@ class CNN(nn.Module):
             kernel_size (int): Width and height of (square) convolution filters
             out_size (int): Number of classes to score
         '''
+        log_message("2.2.1", f"{self.__class__.__name__}.{inspect.stack()[0][3]}", start=True)
+        print_project_details()
+        print(f"_" * 80)
+        print(f"\033[1m{'Inputs to CNN':^80}\033[0m")
+        print(f"out_size:           {out_size}")
+        print(f"loss_vector_type:   {loss_vector_type}")
+        print(f"batch_size:         {batch_size}")
+        print(f"verts_list:         {verts_list}")
+        print(f"in_channels:        {in_channels}")
+        print(f"_" * 80)
 
         super(CNN, self).__init__()
         #############################################################################
@@ -131,12 +147,27 @@ class CNN(nn.Module):
         # self.meshDepthLib = MeshDepthLib(loss_vector_type, batch_size, verts_list = self.verts_list)
         # not needed here, it's only needed in the PhysicalTrainer.train_convnet -> UnpackBatchLib().unpack_batch -> model.CNN.forward_kinematic_angles
 
+        log_message("2.2.1", f"{self.__class__.__name__}.{inspect.stack()[0][3]}", start=False)
 
 
     def forward_kinematic_angles(self, x_images, y_true_gender_switch, y_true_synth_real_switch, CTRL_PNL, OUTPUT_EST_DICT,
                                  y_true_markers_xyz=None, is_training = True, y_true_betas=None, y_true_angles = None, y_true_root_xyz = None):
+        log_message("2.3.1", f"{self.__class__.__name__}.{inspect.stack()[0][3]} (F O R W A R D   P A S S)", start=True)
+        print_project_details()
+
+        print(f"_" * 80)
+        print(f"\033[1m{'Inputs to forward_kinematic_angles':^80}\033[0m")
+        print(f"x_images:                   {x_images.size()}")
+        print(f"y_true_markers_xyz:         {y_true_markers_xyz.size()}")
+        print(f"y_true_betas:               {y_true_betas.size()}")
+        print(f"y_true_angles:              {y_true_angles.size()}")
+        print(f"y_true_root_xyz:            {y_true_root_xyz.size()}")
+        print(f"y_true_gender_switch:       {y_true_gender_switch.size()}")
+        print(f"y_true_synth_real_switch:   {y_true_synth_real_switch.size()}")
+        print("_" * 80)
 
         #cut out the sobel and contact channels
+        print(f"CTRL_PNL['omit_cntct_sobel'] == {CTRL_PNL['omit_cntct_sobel']}")
         if CTRL_PNL['omit_cntct_sobel'] == True:
 
             if CTRL_PNL['cal_noise'] == True:
@@ -154,6 +185,7 @@ class CNN(nn.Module):
         self.dtype = CTRL_PNL['dtype']
 
         #print(torch.cuda.max_memory_allocated(), 'conv0', images.size())
+        print(f"CTRL_PNL['first_pass'] == {CTRL_PNL['first_pass']}")
         if CTRL_PNL['first_pass'] == False:
             x = self.SMPL_meshDepthLib.bounds
             #print blah
@@ -174,9 +206,13 @@ class CNN(nn.Module):
             self.SMPL_meshDepthLib = MeshDepthLib(loss_vector_type=self.loss_vector_type,
                                              batch_size=x_images.size(0), verts_list = self.verts_list)
 
+        print(f"CTRL_PNL['all_tanh_activ'] == {CTRL_PNL['all_tanh_activ']}")
         if CTRL_PNL['all_tanh_activ'] == True:
+            print(f"CTRL_PNL['double_network_size'] == {CTRL_PNL['double_network_size']}")
             if CTRL_PNL['double_network_size'] == False:
+                print(f"images: {x_images.size()}")
                 scores_cnn = self.CNN_packtanh(x_images)
+                print(f"scores_cnn: {scores_cnn.size()}")
             else:
                 scores_cnn = self.CNN_packtanh_double(x_images)
 
@@ -185,22 +221,27 @@ class CNN(nn.Module):
 
         scores_size = scores_cnn.size()
 
+        print(f"scores_size: {scores_size}")
 
         # This combines the height, width, and filters into a single dimension
         scores_cnn = scores_cnn.view(x_images.size(0),scores_size[1] *scores_size[2]*scores_size[3])
 
+        print(f"scores_cnn: {scores_cnn.size()}")
         # this output is N x 85: betas, root shift, angles
+        print(f"CTRL_PNL['double_network_size'] == {CTRL_PNL['double_network_size']}")
         if CTRL_PNL['double_network_size'] == False:
             y_pred_cnn = self.CNN_fc1(scores_cnn)
         else:
             y_pred_cnn = self.CNN_fc1_double(scores_cnn)
 
+        print(f"scores: {scores.size()}")
 
         # weight the outputs, which are already centered around 0. First make them uniformly smaller than the direct output, which is too large.
         if CTRL_PNL['adjust_ang_from_est'] == True:
             y_pred_cnn = torch.mul(y_pred_cnn.clone(), 0.01)
         else:
             y_pred_cnn = torch.mul(y_pred_cnn.clone(), 0.01)
+        print(f"y_pred_cnn: {y_pred_cnn.size()}")
 
         #normalize the output of the network based on the range of the parameters
         #if self.GPU == True:
@@ -213,6 +254,8 @@ class CNN(nn.Module):
 
         #add a factor so the model starts close to the home position. Has nothing to do with weighting.
 
+        print(f"CTRL_PNL['lock_root'] == {CTRL_PNL['lock_root']}")
+        print(f"CTRL_PNL['adjust_ang_from_est'] == {CTRL_PNL['adjust_ang_from_est']}")
         if CTRL_PNL['lock_root'] == True:
             y_pred_cnn[:, 10] = torch.add(y_pred_cnn[:, 10].clone(), 0.6).detach()
             y_pred_cnn[:, 11] = torch.add(y_pred_cnn[:, 11].clone(), 1.2).detach()
@@ -226,13 +269,19 @@ class CNN(nn.Module):
 
         #scores[:, 12] = torch.add(scores[:, 12].clone(), 0.06)
 
+        print(f"CTRL_PNL['full_body_rot'] == {CTRL_PNL['full_body_rot']}")
         if CTRL_PNL['full_body_rot'] == True:
 
             y_pred_cnn = y_pred_cnn.unsqueeze(0)
+            print(f"y_pred_cnn.unsqueeze(0): {y_pred_cnn.size()}")
             y_pred_cnn = y_pred_cnn.unsqueeze(0)
+            print(f"y_pred_cnn.unsqueeze(0): {y_pred_cnn.size()}")
             y_pred_cnn = F.pad(y_pred_cnn, (0, 3, 0, 0))
+            print(f"F.pad(y_pred_cnn, (0, 3, 0, 0)): {y_pred_cnn.size()}")
             y_pred_cnn = y_pred_cnn.squeeze(0)
+            print(f"y_pred_cnn.squeeze(0): {y_pred_cnn.size()}")
             y_pred_cnn = y_pred_cnn.squeeze(0)
+            print(f"y_pred_cnn.squeeze(0): {y_pred_cnn.size()}")
 
             if CTRL_PNL['adjust_ang_from_est'] == True:
 
@@ -246,6 +295,7 @@ class CNN(nn.Module):
             y_pred_cnn[:, 21] = torch.atan2(y_pred_cnn[:, 18].clone(), y_pred_cnn[:, 15].clone()) #yaw x, y
 
             OSA = 6 #output size adder
+            print(f"OSA: {OSA}")
         else:
             OSA = 0
 
@@ -253,7 +303,7 @@ class CNN(nn.Module):
 
 
         #print scores[0, 0:10]
-        if CTRL_PNL['adjust_ang_from_est'] == True:
+        if CTRL_PNL['adjust_ang_from_est'] == True: # in our case, False
             y_pred_cnn[:, 0:10] =  OUTPUT_EST_DICT['betas'] + y_pred_cnn[:, 0:10].clone()
             y_pred_cnn[:, 10:13] = OUTPUT_EST_DICT['root_shift'] + y_pred_cnn[:, 10:13].clone()
             if CTRL_PNL['full_body_rot'] == True:
@@ -270,12 +320,15 @@ class CNN(nn.Module):
         OUTPUT_DICT['y_pred_root_xyz']  = y_pred_cnn[:, 10:13].clone().data
 
 
+        print(f"reg_angles == {reg_angles}") # in our case, False
         if reg_angles == True:
             add_idx = 72
         else:
             add_idx = 0
+        print(f"add_idx: {add_idx}")
 
 
+        print(f"CTRL_PNL['clip_betas'] == {CTRL_PNL['clip_betas']}") # in our case, True
         if CTRL_PNL['clip_betas'] == True:
             y_pred_cnn[:, 0:10] /= 3.
             y_pred_cnn[:, 0:10] = y_pred_cnn[:, 0:10].tanh()
@@ -317,6 +370,7 @@ class CNN(nn.Module):
 
                 y_pred_angles_rot_mat = KinematicsLib().batch_rodrigues(y_pred_cnn[:, 13+OSA:85+OSA].view(-1, 24, 3).clone()).view(-1, 24, 3, 3)
 
+                print(f"Rs_est: {Rs_est.size()}")
             elif self.loss_vector_type == 'anglesEU':
 
                 y_pred_angles_rot_mat = KinematicsLib().batch_euler_to_R(y_pred_cnn[:, 13+OSA:85+OSA].view(-1, 24, 3).clone(), self.SMPL_meshDepthLib.zeros_cartesian, self.SMPL_meshDepthLib.ones_cartesian).view(-1, 24, 3, 3)
@@ -356,6 +410,9 @@ class CNN(nn.Module):
         current_batch_size = y_true_gender_switch.size()[0]
 
 
+        print(f"CTRL_PNL['depth_map_output'] == {CTRL_PNL['depth_map_output']}")
+        print(f"y_true_gender_switch.unsqueeze(1): {y_true_gender_switch.size()}")
+        print(f"current_batch_size:         {current_batch_size}")
         if CTRL_PNL['depth_map_output'] == True:
             # break things up into sub batches and pass through the mesh
             num_normal_sub_batches = current_batch_size // self.SMPL_meshDepthLib.batch_size
@@ -407,34 +464,58 @@ class CNN(nn.Module):
             SMPL_pred_verts_offset = torch.Tensor(SMPL_pred_verts_offset.numpy()).type(self.dtype)
 
         else:
+            print("_" * 50)
+            print(f"SMPL_shapedirs = torch.bmm(y_true_gender_switch, self.SMPL_meshDepthLib.SMPL_shapedirs_repeat[0:current_batch_size, :, :]).view(current_batch_size, SMPL_meshDepthLib.SMPL_B, SMPL_meshDepthLib.SMPL_R * SMPL_meshDepthLib.SMPL_D)")
             SMPL_shapedirs = torch.bmm(y_true_gender_switch, self.SMPL_meshDepthLib.SMPL_shapedirs_repeat[0:current_batch_size, :, :])\
                              .view(current_batch_size, self.SMPL_meshDepthLib.SMPL_B, self.SMPL_meshDepthLib.SMPL_R*self.SMPL_meshDepthLib.SMPL_D)
+            print(f"y_true_gender_switch:  {y_true_gender_switch.size()}")
+            print(f"SMPL_meshDepthLib.SMPL_shapedirs_repeat: {self.SMPL_meshDepthLib.SMPL_shapedirs_repeat[0:current_batch_size, :, :].size()}")
+            print(f"torch.bmm():    {torch.bmm(y_true_gender_switch, self.SMPL_meshDepthLib.SMPL_shapedirs_repeat[0:current_batch_size, :, :]).size()}")
+            print(f"SMPL_shapedirs:      {SMPL_shapedirs.size()}")
+            print("_" * 50)
 
+            print("_" * 50)
+            print(f"betas_shapedirs_mult = torch.bmm(betas.unsqueeze(1), shapedirs).squeeze(1).view(current_batch_size, R, D)")
             SMPL_shapedirs_y_pred_betas_mult = torch.bmm(y_pred_betas.unsqueeze(1), SMPL_shapedirs)\
                                         .squeeze(1)\
                                         .view(current_batch_size, self.SMPL_meshDepthLib.SMPL_R, self.SMPL_meshDepthLib.SMPL_D)
+            print(f"y_pred_betas.unsqueeze(1): {y_pred_betas.unsqueeze(1).size()}")
+            print(f"SMPL_shapedirs:              {SMPL_shapedirs.size()}")
+            print(f"torch.bmm():            {torch.bmm(y_pred_betas.unsqueeze(1), SMPL_shapedirs).size()}")
+            print(f"torch.bmm().squeeze(1): {torch.bmm(y_pred_betas.unsqueeze(1), SMPL_shapedirs).squeeze(1).size()}")
+            print(f"SMPL_shapedirs_y_pred_betas_mult:   {SMPL_shapedirs_y_pred_betas_mult.size()}")
 
             SMPL_v_template = torch.bmm(y_true_gender_switch, self.SMPL_meshDepthLib.SMPL_v_template_repeat[0:current_batch_size, :, :])\
                               .view(current_batch_size, self.SMPL_meshDepthLib.SMPL_R, self.SMPL_meshDepthLib.SMPL_D)
+            print(f"SMPL_v_template: {SMPL_v_template.size()}")
 
             SMPL_pred_v_shaped = SMPL_shapedirs_y_pred_betas_mult + SMPL_v_template
+            print(f"SMPL_pred_v_shaped: {SMPL_pred_v_shaped.size()}")
 
             SMPL_J_regressor = torch.bmm(y_true_gender_switch, self.SMPL_meshDepthLib.SMPL_J_regressor_repeat[0:current_batch_size, :, :])\
                                       .view(current_batch_size, self.SMPL_meshDepthLib.SMPL_R, 24)
+            print(f"SMPL_J_regressor: {SMPL_J_regressor.size()}")
 
             SMPL_pred_Jx = torch.bmm(SMPL_pred_v_shaped[:, :, 0].unsqueeze(1), SMPL_J_regressor).squeeze(1)
             SMPL_pred_Jy = torch.bmm(SMPL_pred_v_shaped[:, :, 1].unsqueeze(1), SMPL_J_regressor).squeeze(1)
             SMPL_pred_Jz = torch.bmm(SMPL_pred_v_shaped[:, :, 2].unsqueeze(1), SMPL_J_regressor).squeeze(1)
+            print(f"SMPL_pred_Jx: {SMPL_pred_Jx.size()}")
+            print(f"SMPL_pred_Jy: {SMPL_pred_Jy.size()}")
+            print(f"SMPL_pred_Jz: {SMPL_pred_Jz.size()}")
 
 
             SMPL_pred_J = torch.stack([SMPL_pred_Jx, SMPL_pred_Jy, SMPL_pred_Jz], dim=2)  # these are the joint locations with home pose (pose is 0 degree on all angles)
             #J_est = J_est - J_est[:, 0:1, :] + root_shift_est.unsqueeze(1)
+            print(f"SMPL_pred_J: {SMPL_pred_J.size()}")
 
 
             y_pred_markers_xyz, SMPL_pred_A = KinematicsLib().batch_global_rigid_transformation(y_pred_angles_rot_mat, SMPL_pred_J, self.SMPL_meshDepthLib.parents,
                                                                                    self.GPU, rotate_base=False)
+            print(f"y_pred_markers_xyz: {y_pred_markers_xyz.size()}")
+            print(f"SMPL_pred_A: {SMPL_pred_A.size()}")
 
             y_pred_markers_xyz = y_pred_markers_xyz - SMPL_pred_J[:, 0:1, :] + y_pred_root_xyz.unsqueeze(1)
+            print(f"y_pred_markers_xyz: {y_pred_markers_xyz.size()}")
 
             # assemble a reduced form of the transformed mesh
             SMPL_pred_v_shaped_red = torch.stack([SMPL_pred_v_shaped[:, self.verts_list[0], :],
@@ -447,12 +528,23 @@ class CNN(nn.Module):
                                         SMPL_pred_v_shaped[:, self.verts_list[7], :],  # r elbow
                                         SMPL_pred_v_shaped[:, self.verts_list[8], :],  # l wrist
                                         SMPL_pred_v_shaped[:, self.verts_list[9], :]]).permute(1, 0, 2)  # r wrist
+            print(f"SMPL_pred_v_shaped_red:           {SMPL_pred_v_shaped_red.size()}")
+
             # y_pred_angles_rot_mat_pose_feature = (y_pred_angles_rot_mat[:, 1:, :, :]).sub(1.0, torch.eye(3).type(self.dtype)).view(-1, 207)   # replaced by Nadeem, as .sub is deprecated
             y_pred_angles_rot_mat_pose_feature = (y_pred_angles_rot_mat[:, 1:, :, :] - torch.eye(3).type(self.dtype)).view(-1, 207)
+            # y_pred_angles_rot_mat_pose_feature = (y_pred_angles_rot_mat[:, 1:, :, :] - torch.eye(3).type(self.dtype)).view(-1, 207)
+                            #  ([512, 23, 3, 3] - [3, 3]).view(-1, 93 or 207)
+
+            print(f"y_pred_angles_rot_mat_pose_feature:           {y_pred_angles_rot_mat_pose_feature.size()}")
+
             SMPL_posedirs = torch.bmm(y_true_gender_switch, self.SMPL_meshDepthLib.SMPL_posedirs_repeat[0:current_batch_size, :, :]) \
                 .view(current_batch_size, 10 * self.SMPL_meshDepthLib.SMPL_D, 207) \
                 .permute(0, 2, 1)
+            print(f"SMPL_posedirs: {SMPL_posedirs.size()}")
+
             SMPL_pred_v_posed = torch.bmm(y_pred_angles_rot_mat_pose_feature.unsqueeze(1), SMPL_posedirs).view(-1, 10, self.SMPL_meshDepthLib.SMPL_D)
+            print(f"SMPL_pred_v_posed: {SMPL_pred_v_posed.size()}")
+
             SMPL_pred_v_posed = SMPL_pred_v_posed.clone() + SMPL_pred_v_shaped_red
             SMPL_weights = torch.bmm(y_true_gender_switch, self.SMPL_meshDepthLib.SMPL_weights_repeat[0:current_batch_size, :, :]) \
                 .squeeze(1) \
@@ -470,6 +562,7 @@ class CNN(nn.Module):
             OUTPUT_DICT['batch_cm_est'] = None
 
 
+# ---------------------------------------------------------------------------------------------------
         #print verts[0:10], 'VERTS EST INIT'
         OUTPUT_DICT['SMPL_pred_verts'] = SMPL_pred_verts.clone().detach().cpu().numpy()
 
@@ -564,4 +657,6 @@ class CNN(nn.Module):
 
 
         return y_pred_cnn, OUTPUT_DICT
+        log_message("2.3.1", f"{self.__class__.__name__}.{inspect.stack()[0][3]} (F O R W A R D   P A S S)", start=False)
+        return scores, OUTPUT_DICT
 
