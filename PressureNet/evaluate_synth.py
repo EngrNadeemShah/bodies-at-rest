@@ -199,10 +199,10 @@ class PhysicalTrainer():
         #################################### PREP TESTING DATA ##########################################
         # load in the test file
 
-        test_dat_f_synth = TensorPrepLib().load_files_to_database(testing_database_file_f, creation_type = 'synth', reduce_data = False, test = True)
-        test_dat_m_synth = TensorPrepLib().load_files_to_database(testing_database_file_m, creation_type = 'synth', reduce_data = False, test = True)
-        test_dat_f_real = TensorPrepLib().load_files_to_database(testing_database_file_f, creation_type = 'real', reduce_data = False, test = True)
-        test_dat_m_real = TensorPrepLib().load_files_to_database(testing_database_file_m, creation_type = 'real', reduce_data = False, test = True)
+        test_dat_f_synth = TensorPrepLib().load_files_to_database(testing_database_file_f, creation_type = 'synth', test = True)
+        test_dat_m_synth = TensorPrepLib().load_files_to_database(testing_database_file_m, creation_type = 'synth', test = True)
+        test_dat_f_real = TensorPrepLib().load_files_to_database(testing_database_file_f, creation_type = 'real', test = True)
+        test_dat_m_real = TensorPrepLib().load_files_to_database(testing_database_file_m, creation_type = 'real', test = True)
 
         self.test_x_flat = []  # Initialize the testing pressure mat list
         self.test_x_flat = TensorPrepLib().prep_images(self.test_x_flat, test_dat_f_synth, test_dat_m_synth, num_repeats = 1)
@@ -759,9 +759,6 @@ if __name__ == "__main__":
     p.add_option('--pmr', action='store_true', dest='pmr', default=False,
                  help='Run PMR on input plus precomputed spatial maps.')
 
-    p.add_option('--small', action='store_true', dest='small', default=False,
-                 help='Make the dataset 1/4th of the original size.')
-
     p.add_option('--htwt', action='store_true', dest='htwt', default=False,
                  help='Include height and weight info on the input.')
 
@@ -815,12 +812,8 @@ if __name__ == "__main__":
         FILEPATH_PREFIX = "/media/henry/multimodal_data_2/data_BR"
 
 
-    if opt.small == True:
-        NETWORK_1 = "46000ct_"
-        NETWORK_2 = "46000ct_"
-    else:
-        NETWORK_1 = "184000ct_"
-        NETWORK_2 = "184000ct_"
+    NETWORK_1 = "184000ct_"
+    NETWORK_2 = "184000ct_"
 
 
     NETWORK_1 += "128b_x1pm_tnh"

@@ -153,8 +153,8 @@ class PhysicalTrainer():
 
         #################################### PREP TRAINING DATA ##########################################
 
-        dat_f_synth = TensorPrepLib().load_files_to_database(training_database_file_f, creation_type = 'synth', reduce_data = False)
-        dat_m_synth = TensorPrepLib().load_files_to_database(training_database_file_m, creation_type = 'synth', reduce_data = False)
+        dat_f_synth = TensorPrepLib().load_files_to_database(training_database_file_f, creation_type = 'synth')
+        dat_m_synth = TensorPrepLib().load_files_to_database(training_database_file_m, creation_type = 'synth')
 
 
         self.train_x_flat = []  # Initialize the testing pressure mat list

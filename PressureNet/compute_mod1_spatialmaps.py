@@ -190,16 +190,11 @@ class PhysicalTrainer():
 
         #################################### PREP TESTING DATA ##########################################
         #load training ysnth data
-        if opt.small == True:
-            reduce_data = True
-        else:
-            reduce_data = False
-
         # load in the test file
-        test_dat_f_synth = TensorPrepLib().load_files_to_database(testing_database_file_f, creation_type = 'synth', reduce_data = reduce_data)
-        test_dat_m_synth = TensorPrepLib().load_files_to_database(testing_database_file_m, creation_type = 'synth', reduce_data = reduce_data)
-        test_dat_f_real = TensorPrepLib().load_files_to_database(testing_database_file_f, creation_type = 'real', reduce_data = reduce_data)
-        test_dat_m_real = TensorPrepLib().load_files_to_database(testing_database_file_m, creation_type = 'real', reduce_data = reduce_data)
+        test_dat_f_synth = TensorPrepLib().load_files_to_database(testing_database_file_f, creation_type = 'synth')
+        test_dat_m_synth = TensorPrepLib().load_files_to_database(testing_database_file_m, creation_type = 'synth')
+        test_dat_f_real = TensorPrepLib().load_files_to_database(testing_database_file_f, creation_type = 'real')
+        test_dat_m_real = TensorPrepLib().load_files_to_database(testing_database_file_m, creation_type = 'real')
 
 
         for possible_dat in [test_dat_f_synth, test_dat_m_synth, test_dat_f_real, test_dat_m_real]:
@@ -302,8 +297,7 @@ class PhysicalTrainer():
 
 
         self.model_name = 'convnet_1_'+str(self.opt.losstype)
-        if self.opt.small == True: self.model_name += '_46000ct'
-        else: self.model_name += '_184000ct'
+        self.model_name += '_184000ct'
 
         self.model_name += '_128b_x'+str(self.CTRL_PNL['pmat_mult'])+'pm_tnh'
 
@@ -434,9 +428,6 @@ if __name__ == "__main__":
 
     p.add_option('--device', action='store', type = 'int', dest='device', default=0,
                  help='Choose a GPU core.')
-
-    p.add_option('--small', action='store_true', dest='small', default=False,
-                 help='Make the dataset 1/4th of the original size.')
 
     p.add_option('--qt', action='store_true', dest='quick_test', default=False,
                  help='Do a quick test.')

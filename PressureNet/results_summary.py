@@ -37,9 +37,6 @@ if __name__ == '__main__':
     p.add_option('--pmr', action='store_true', dest='pmr', default=False,
                  help='Run PMR on input plus precomputed spatial maps.')
 
-    p.add_option('--small', action='store_true', dest='small', default=False,
-                 help='Make the dataset 1/4th of the original size.')
-
     p.add_option('--htwt', action='store_true', dest='htwt', default=False,
                  help='Include height and weight info on the input.')
 
@@ -104,12 +101,8 @@ if __name__ == '__main__':
         straight_limbs = [[]]
 
 
-        if opt.small == True:
-            NETWORK_2 = "46000ct_"
-            DATA_QUANT = "46K"
-        else:
-            NETWORK_2 = "184000ct_"
-            DATA_QUANT = "184K"
+        NETWORK_2 = "184000ct_"
+        DATA_QUANT = "184K"
 
 
         if opt.go200 == True:
@@ -301,12 +294,8 @@ if __name__ == '__main__':
     elif RESULT_TYPE == "synth":
 
 
-        if opt.small == True:
-            NETWORK_2 = "46000ct_"
-            DATA_QUANT = "46K"
-        else:
-            NETWORK_2 = "184000ct_"
-            DATA_QUANT = "184K"
+        NETWORK_2 = "184000ct_"
+        DATA_QUANT = "184K"
 
 
         if opt.go200 == True:

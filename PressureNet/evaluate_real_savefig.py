@@ -1095,9 +1095,6 @@ if __name__ ==  "__main__":
     p.add_option('--pmr', action='store_true', dest='pmr', default=False,
                  help='Run PMR on input plus precomputed spatial maps.')
 
-    p.add_option('--small', action='store_true', dest='small', default=False,
-                 help='Make the dataset 1/4th of the original size.')
-
     p.add_option('--htwt', action='store_true', dest='htwt', default=False,
                  help='Include height and weight info on the input.')
 
@@ -1181,12 +1178,8 @@ if __name__ ==  "__main__":
 
 
 
-        if opt.small == True:
-            NETWORK_1 = "46000ct_"
-            NETWORK_2 = "46000ct_"
-        else:
-            NETWORK_1 = "184000ct_"
-            NETWORK_2 = "184000ct_"
+        NETWORK_1 = "184000ct_"
+        NETWORK_2 = "184000ct_"
 
 
         NETWORK_1 += "128b_x1pm_tnh"

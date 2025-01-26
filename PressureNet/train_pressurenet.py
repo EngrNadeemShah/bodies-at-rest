@@ -187,13 +187,9 @@ class PhysicalTrainer():
 
         #################################### PREP TRAINING DATA ##########################################
         #load training ysnth data
-        if opt.small == True and opt.mod == 1:
-            reduce_data = True
-        else:
-            reduce_data = False
 
-        dat_f_synth = TensorPrepLib().load_files_to_database(training_database_file_f, creation_type = 'synth', reduce_data = reduce_data)
-        dat_m_synth = TensorPrepLib().load_files_to_database(training_database_file_m, creation_type = 'synth', reduce_data = reduce_data)
+        dat_f_synth = TensorPrepLib().load_files_to_database(training_database_file_f, creation_type = 'synth')
+        dat_m_synth = TensorPrepLib().load_files_to_database(training_database_file_m, creation_type = 'synth')
 
 
         self.train_x_flat = []  # Initialize the testing pressure mat list
@@ -262,10 +258,10 @@ class PhysicalTrainer():
 
         #################################### PREP TESTING DATA ##########################################
         # load in the test file
-        test_dat_f_synth = TensorPrepLib().load_files_to_database(testing_database_file_f, creation_type = 'synth', reduce_data = reduce_data)
-        test_dat_m_synth = TensorPrepLib().load_files_to_database(testing_database_file_m, creation_type = 'synth', reduce_data = reduce_data)
-        test_dat_f_real = TensorPrepLib().load_files_to_database(testing_database_file_f, creation_type = 'real', reduce_data = reduce_data)
-        test_dat_m_real = TensorPrepLib().load_files_to_database(testing_database_file_m, creation_type = 'real', reduce_data = reduce_data)
+        test_dat_f_synth = TensorPrepLib().load_files_to_database(testing_database_file_f, creation_type = 'synth')
+        test_dat_m_synth = TensorPrepLib().load_files_to_database(testing_database_file_m, creation_type = 'synth')
+        test_dat_f_real = TensorPrepLib().load_files_to_database(testing_database_file_f, creation_type = 'real')
+        test_dat_m_real = TensorPrepLib().load_files_to_database(testing_database_file_m, creation_type = 'real')
 
         self.test_x_flat = []  # Initialize the testing pressure mat list
         self.test_x_flat = TensorPrepLib().prep_images(self.test_x_flat, test_dat_f_synth, test_dat_m_synth, num_repeats = 1)
@@ -765,9 +761,6 @@ if __name__ == "__main__":
     p.add_option('--go200', action='store_true', dest='go200', default=False,
                  help='Run network 1 for 100 to 200 epochs.')
 
-    p.add_option('--small', action='store_true', dest='small', default=False,
-                 help='Make the dataset 1/4th of the original size.')
-
     p.add_option('--htwt', action='store_true', dest='htwt', default=False,
                  help='Include height and weight info on the input.')
 
@@ -812,12 +805,7 @@ if __name__ == "__main__":
 
     if opt.mod == 2 or opt.quick_test == True:
         data_fp_suffix = '_convnet_1_'+str(opt.losstype)
-
-        if opt.small == True:
-            data_fp_suffix += '_46000ct'
-        else:
-            data_fp_suffix += '_184000ct'
-
+        data_fp_suffix += '_184000ct'
         data_fp_suffix += '_128b_x1pm_tnh'
 
         if opt.htwt == True:
