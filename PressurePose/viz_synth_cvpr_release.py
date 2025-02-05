@@ -73,7 +73,7 @@ class PhysicalTrainer():
         #it's all just boilerplate for loading in the synthetic data
 
         self.CTRL_PNL = {}
-        self.CTRL_PNL['loss_vector_type'] = 'anglesDC'
+        self.CTRL_PNL['loss_type'] = 'anglesDC'
         self.CTRL_PNL['verbose'] = False
         self.CTRL_PNL['batch_size'] = 1
         self.CTRL_PNL['num_epochs'] = 100
@@ -199,12 +199,12 @@ class PhysicalTrainer():
         train_y_flat = []  # Initialize the training ground truth list
         train_y_flat = TensorPrepLib().prep_labels(train_y_flat, dat_f_synth, num_repeats = 1,
                                                         z_adj = -0.075, gender = "f", is_synth = True,
-                                                        loss_vector_type = self.CTRL_PNL['loss_vector_type'],
+                                                        loss_type = self.CTRL_PNL['loss_type'],
                                                         initial_angle_est = self.CTRL_PNL['adjust_ang_from_est'],
                                                         full_body_rot = self.CTRL_PNL['full_body_rot'])
         train_y_flat = TensorPrepLib().prep_labels(train_y_flat, dat_m_synth, num_repeats = 1,
                                                         z_adj = -0.075, gender = "m", is_synth = True,
-                                                        loss_vector_type = self.CTRL_PNL['loss_vector_type'],
+                                                        loss_type = self.CTRL_PNL['loss_type'],
                                                         initial_angle_est = self.CTRL_PNL['adjust_ang_from_est'],
                                                         full_body_rot = self.CTRL_PNL['full_body_rot'])
 

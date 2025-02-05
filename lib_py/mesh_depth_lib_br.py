@@ -45,7 +45,7 @@ def load_pickle(filename):
 
 class MeshDepthLib():
 
-    def __init__(self, loss_vector_type, batch_size, verts_list, STAR=False):
+    def __init__(self, loss_type, batch_size, verts_list, STAR=False):
 
         if torch.cuda.is_available():
             self.GPU = True
@@ -59,12 +59,12 @@ class MeshDepthLib():
             dtypeInt = torch.LongTensor
         self.dtype = dtype
         self.dtypeInt = dtypeInt
-        self.loss_vector_type = loss_vector_type
+        self.loss_type = loss_type
         self.STAR = STAR
         print(f"STAR: {STAR}")
         print(f"self.STAR: {self.STAR}")
 
-        if self.loss_vector_type == 'anglesDC':
+        if self.loss_type == 'anglesDC':
             self.bounds = torch.Tensor(
                 np.array([[-0.5933865286111969, 0.5933865286111969], [-2*np.pi, 2*np.pi], [-1.215762200416361, 1.215762200416361],
                           [-1.5793940868065197, 0.3097956806], [-0.5881754611, 0.5689768556],[-0.5323249722, 0.6736965222],
@@ -104,7 +104,7 @@ class MeshDepthLib():
                           [-0.01, 0.01], [-0.01, 0.01], [-0.01, 0.01]])).type(dtype)
             self.bounds*=1.2
 
-        elif self.loss_vector_type == 'anglesEU':
+        elif self.loss_type == 'anglesEU':
             self.bounds = torch.Tensor(
                 np.array([[-np.pi / 3, np.pi / 3], [-np.pi / 36, np.pi / 36], [-np.pi / 3, np.pi / 3],
                           #[np.deg2rad(-90.0), np.deg2rad(17.8)], [np.deg2rad(-33.7), np.deg2rad(32.6)], [np.deg2rad(-30.5), np.deg2rad(38.6)],
@@ -163,7 +163,7 @@ class MeshDepthLib():
 
 
         if verts_list == "all":
-            if loss_vector_type == 'anglesR' or loss_vector_type == 'anglesDC' or loss_vector_type == 'anglesEU':
+            if loss_type == 'anglesR' or loss_type == 'anglesDC' or loss_type == 'anglesEU':
 
                 # print torch.cuda.max_memory_allocated(), torch.cuda.memory_allocated(), torch.cuda.memory_cached(), "p1"
 
@@ -239,7 +239,7 @@ class MeshDepthLib():
                 # self.weights_repeat = self.weights_repeat.permute(1, 0, 2, 3).view(self.N, 2, self.SMPL_R * 24)
                 self.SMPL_weights_repeat = self.SMPL_weights_repeat.permute(1, 0, 2, 3).view(self.batch_size, 2, self.R_used * 24)
 
-                if self.loss_vector_type == 'anglesEU':
+                if self.loss_type == 'anglesEU':
                     self.zeros_cartesian = torch.zeros([batch_size, 24]).type(dtype)
                     self.ones_cartesian = torch.ones([batch_size, 24]).type(dtype)
 
@@ -253,7 +253,7 @@ class MeshDepthLib():
 
                 # print torch.cuda.max_memory_allocated(), torch.cuda.memory_allocated(), torch.cuda.memory_cached(),"p6"
         else:
-            if loss_vector_type == 'anglesR' or loss_vector_type == 'anglesDC' or loss_vector_type == 'anglesEU':
+            if loss_type == 'anglesR' or loss_type == 'anglesDC' or loss_type == 'anglesEU':
                 print(f"self.STAR: {self.STAR}")
                 if self.STAR:
                     print(f"self.STAR: {self.STAR}")
@@ -426,7 +426,7 @@ class MeshDepthLib():
                 self.SMPL_weights_repeat = torch.cat((self.SMPL_weights_repeat_f, self.SMPL_weights_repeat_m), 0)
                 # self.weights_repeat = self.weights_repeat.permute(1, 0, 2, 3).view(self.N, 2, self.SMPL_R * 24)
                 self.SMPL_weights_repeat = self.SMPL_weights_repeat.permute(1, 0, 2, 3).view(self.batch_size, 2, 10 * 24)
-                if self.loss_vector_type == 'anglesEU':
+                if self.loss_type == 'anglesEU':
                     self.zeros_cartesian = torch.zeros([self.batch_size, 24]).type(dtype)
                     self.ones_cartesian = torch.ones([self.batch_size, 24]).type(dtype)
 

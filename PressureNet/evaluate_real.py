@@ -113,7 +113,7 @@ class Viz3DPose():
 
         self.CTRL_PNL = {}
         self.CTRL_PNL['batch_size'] = 1
-        self.CTRL_PNL['loss_vector_type'] = 'anglesDC'
+        self.CTRL_PNL['loss_type'] = 'anglesDC'
         self.CTRL_PNL['verbose'] = False
         self.CTRL_PNL['num_epochs'] = 101
         self.CTRL_PNL['incl_inter'] = True

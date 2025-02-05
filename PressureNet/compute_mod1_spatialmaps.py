@@ -89,7 +89,7 @@ class PhysicalTrainer():
         # change this to 'direct' when you are doing baseline methods
         self.CTRL_PNL = {}
         self.CTRL_PNL['batch_size'] = 64
-        self.CTRL_PNL['loss_vector_type'] = opt.losstype
+        self.CTRL_PNL['loss_type'] = opt.loss_type
         self.CTRL_PNL['verbose'] = opt.verbose
         self.opt = opt
         self.CTRL_PNL['num_epochs'] = 100
@@ -132,7 +132,7 @@ class PhysicalTrainer():
         if GPU == True:
             torch.cuda.set_device(self.opt.device)
 
-        if opt.losstype == 'direct':
+        if opt.loss_type == 'direct':
             self.CTRL_PNL['depth_map_labels'] = False
             self.CTRL_PNL['depth_map_output'] = False
 
@@ -256,22 +256,22 @@ class PhysicalTrainer():
 
         test_y_flat = TensorPrepLib().prep_labels(test_y_flat, test_dat_f_synth, num_repeats = 1,
                                                     z_adj = -0.075, gender = "f", is_synth = True,
-                                                    loss_vector_type = self.CTRL_PNL['loss_vector_type'],
+                                                    loss_type = self.CTRL_PNL['loss_type'],
                                                     initial_angle_est = self.CTRL_PNL['adjust_ang_from_est'],
                                                     full_body_rot = self.CTRL_PNL['full_body_rot'])
         test_y_flat = TensorPrepLib().prep_labels(test_y_flat, test_dat_m_synth, num_repeats = 1,
                                                     z_adj = -0.075, gender = "m", is_synth = True,
-                                                    loss_vector_type = self.CTRL_PNL['loss_vector_type'],
+                                                    loss_type = self.CTRL_PNL['loss_type'],
                                                     initial_angle_est = self.CTRL_PNL['adjust_ang_from_est'],
                                                     full_body_rot = self.CTRL_PNL['full_body_rot'])
 
         test_y_flat = TensorPrepLib().prep_labels(test_y_flat, test_dat_f_real, num_repeats = 1,
                                                     z_adj = 0.0, gender = "f", is_synth = False,
-                                                    loss_vector_type = self.CTRL_PNL['loss_vector_type'],
+                                                    loss_type = self.CTRL_PNL['loss_type'],
                                                     initial_angle_est = self.CTRL_PNL['adjust_ang_from_est'])
         test_y_flat = TensorPrepLib().prep_labels(test_y_flat, test_dat_m_real, num_repeats = 1,
                                                     z_adj = 0.0, gender = "m", is_synth = False,
-                                                    loss_vector_type = self.CTRL_PNL['loss_vector_type'],
+                                                    loss_type = self.CTRL_PNL['loss_type'],
                                                     initial_angle_est = self.CTRL_PNL['adjust_ang_from_est'])
 
         if self.CTRL_PNL['normalize_std'] == True:
@@ -296,7 +296,7 @@ class PhysicalTrainer():
         self.test_loader = torch.utils.data.DataLoader(self.test_dataset, self.CTRL_PNL['batch_size'], shuffle=self.CTRL_PNL['shuffle'])
 
 
-        self.model_name = 'convnet_1_'+str(self.opt.losstype)
+        self.model_name = 'convnet_1_'+str(self.opt.loss_type)
         self.model_name += '_184000ct'
 
         self.model_name += '_128b_x'+str(self.CTRL_PNL['pmat_mult'])+'pm_tnh'
@@ -391,13 +391,13 @@ class PhysicalTrainer():
                 error_norm, error_avg, _ = VisualizationLib().print_error_val(targets_print[-2:-1,:].cpu(),
                                                                                    targets_est_print[-2:-1,:].cpu(),
                                                                                    self.output_size_val,
-                                                                                   self.CTRL_PNL['loss_vector_type'],
+                                                                                   self.CTRL_PNL['loss_type'],
                                                                                    data='validate')
             else:
                 error_norm, error_avg, _ = VisualizationLib().print_error_val(targets_print[-2:-1,:],
                                                                               targets_est_print[-2:-1,:],
                                                                                    self.output_size_val,
-                                                                                   self.CTRL_PNL['loss_vector_type'],
+                                                                                   self.CTRL_PNL['loss_type'],
                                                                                    data='validate')
 
             for item in self.dat:
@@ -417,7 +417,7 @@ if __name__ == "__main__":
     p.add_option('--computer', action='store', type = 'string', dest='computer', default='lab_harddrive',
                  help='Set path to the training database on lab harddrive.')
 
-    p.add_option('--losstype', action='store', type = 'string', dest='losstype', default='anglesDC',
+    p.add_option('--loss_type', action='store', type = 'string', dest='loss_type', default='anglesDC',
                  help='Choose direction cosine or euler angle regression.')
 
     p.add_option('--j_d_ratio', action='store', type = 'float', dest='j_d_ratio', default=0.5, #PMR parameter to adjust loss function 2

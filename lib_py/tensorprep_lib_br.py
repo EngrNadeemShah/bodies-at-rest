@@ -151,7 +151,7 @@ class TensorPrepLib():
 
         return train_xa
 
-    def prep_labels(self, y_flat, dat, num_repeats, z_adj, gender, is_synth, loss_vector_type, initial_angle_est, full_body_rot = False):
+    def prep_labels(self, y_flat, dat, num_repeats, z_adj, gender, is_synth, loss_type, initial_angle_est, full_body_rot = False):
         if gender == "f":
             g1 = 1
             g2 = 0
@@ -165,7 +165,7 @@ class TensorPrepLib():
         z_adj_all = np.array(24 * [0.0, 0.0, z_adj*1000])
         z_adj_one = np.array(1 * [0.0, 0.0, z_adj*1000])
 
-        if is_synth == True and loss_vector_type != 'direct':
+        if is_synth == True and loss_type != 'direct':
             if dat is not None:
                 for entry in range(len(dat['markers_xyz_m'])):
                     c = np.concatenate((dat['markers_xyz_m'][entry][0:72] * 1000 + z_adj_all,
@@ -185,7 +185,7 @@ class TensorPrepLib():
                     for i in range(num_repeats):
                         y_flat.append(c)
 
-        elif is_synth == True and loss_vector_type == 'direct':
+        elif is_synth == True and loss_type == 'direct':
             if dat is not None:
                 for entry in range(len(dat['markers_xyz_m_offset'])):
                     c = np.concatenate((np.array(9 * [0]),

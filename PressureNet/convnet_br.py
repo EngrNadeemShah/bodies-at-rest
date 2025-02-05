@@ -17,7 +17,7 @@ from mesh_depth_lib_br import MeshDepthLib
 
 
 class CNN(nn.Module):
-    def __init__(self, out_size, loss_vector_type, batch_size, verts_list, in_channels = 3):
+    def __init__(self, out_size, loss_type, batch_size, verts_list, in_channels = 3):
         '''
         Create components of a CNN classifier and initialize their weights.
 
@@ -171,7 +171,7 @@ class CNN(nn.Module):
                 self.verts_list = "all"
             else:
                 self.verts_list = [1325, 336, 1032, 4515, 1374, 4848, 1739, 5209, 1960, 5423]
-            self.SMPL_meshDepthLib = MeshDepthLib(loss_vector_type=self.loss_vector_type,
+            self.SMPL_meshDepthLib = MeshDepthLib(loss_type=self.loss_type,
                                              batch_size=x_images.size(0), verts_list = self.verts_list)
 
         if CTRL_PNL['all_tanh_activ'] == True:
@@ -313,11 +313,11 @@ class CNN(nn.Module):
             #print scores[:, 13+OSA:85+OSA]
 
 
-            if self.loss_vector_type == 'anglesDC':
+            if self.loss_type == 'anglesDC':
 
                 y_pred_angles_rot_mat = KinematicsLib().batch_rodrigues(y_pred_cnn[:, 13+OSA:85+OSA].view(-1, 24, 3).clone()).view(-1, 24, 3, 3)
 
-            elif self.loss_vector_type == 'anglesEU':
+            elif self.loss_type == 'anglesEU':
 
                 y_pred_angles_rot_mat = KinematicsLib().batch_euler_to_R(y_pred_cnn[:, 13+OSA:85+OSA].view(-1, 24, 3).clone(), self.SMPL_meshDepthLib.zeros_cartesian, self.SMPL_meshDepthLib.ones_cartesian).view(-1, 24, 3, 3)
 
@@ -329,7 +329,7 @@ class CNN(nn.Module):
             y_pred_root_xyz = y_true_root_xyz
 
 
-            if self.loss_vector_type == 'anglesDC':
+            if self.loss_type == 'anglesDC':
 
                 #normalize for tan activation function
                 #scores[:, 13+OSA:85+OSA] -= torch.mean(self.meshDepthLib.bounds[0:72,0:2], dim = 1)
@@ -345,9 +345,9 @@ class CNN(nn.Module):
 
 
         OUTPUT_DICT['y_pred_betas_post_clip']       = y_pred_cnn[:, 0:10].clone().data
-        if self.loss_vector_type == 'anglesEU':
+        if self.loss_type == 'anglesEU':
             OUTPUT_DICT['y_pred_angles_post_clip']  = KinematicsLib().batch_dir_cos_angles_from_euler_angles(y_pred_cnn[:, 13+OSA:85+OSA].view(-1, 24, 3).clone(), self.SMPL_meshDepthLib.zeros_cartesian, self.SMPL_meshDepthLib.ones_cartesian)
-        elif self.loss_vector_type == 'anglesDC':
+        elif self.loss_type == 'anglesDC':
             OUTPUT_DICT['y_pred_angles_post_clip']  = y_pred_cnn[:, 13+OSA:85+OSA].view(-1, 24, 3).clone()
         OUTPUT_DICT['y_pred_root_xyz_post_clip']    = y_pred_cnn[:, 10:13].clone().data
 
@@ -504,10 +504,10 @@ class CNN(nn.Module):
         y_pred_cnn[:, 0:10] = torch.mul(y_true_synth_real_switch.unsqueeze(1), torch.sub(y_pred_cnn[:, 0:10], y_true_betas))#*.2
         if CTRL_PNL['full_body_rot'] == True:
             y_pred_cnn[:, 10:16] = y_pred_cnn[:, 13:19].clone()
-            if self.loss_vector_type == 'anglesEU':
+            if self.loss_type == 'anglesEU':
                 y_pred_cnn[:, 10:13] = y_pred_cnn[:, 10:13].clone() - torch.cos(KinematicsLib().batch_euler_angles_from_dir_cos_angles(y_true_angles[:, 0:3].view(-1, 1, 3).clone()).contiguous().view(-1, 3))
                 y_pred_cnn[:, 13:16] = y_pred_cnn[:, 13:16].clone() - torch.sin(KinematicsLib().batch_euler_angles_from_dir_cos_angles(y_true_angles[:, 0:3].view(-1, 1, 3).clone()).contiguous().view(-1, 3))
-            elif self.loss_vector_type == 'anglesDC':
+            elif self.loss_type == 'anglesDC':
                 y_pred_cnn[:, 10:13] = y_pred_cnn[:, 10:13].clone() - torch.cos(y_true_angles[:, 0:3].clone())
                 y_pred_cnn[:, 13:16] = y_pred_cnn[:, 13:16].clone() - torch.sin(y_true_angles[:, 0:3].clone())
 
@@ -515,11 +515,11 @@ class CNN(nn.Module):
 
         #compare the output angles to the target values
         if reg_angles == True:
-            if self.loss_vector_type == 'anglesDC':
+            if self.loss_type == 'anglesDC':
                 y_pred_cnn[:, 34+OSA:106+OSA] = y_true_angles.clone().view(-1, 72) - y_pred_cnn[:, 13+OSA:85+OSA]
                 y_pred_cnn[:, 34+OSA:106+OSA] = torch.mul(y_true_synth_real_switch.unsqueeze(1), torch.sub(y_pred_cnn[:, 34+OSA:106+OSA], y_true_angles.clone().view(-1, 72)))
 
-            elif self.loss_vector_type == 'anglesEU':
+            elif self.loss_type == 'anglesEU':
                 y_pred_cnn[:, 34+OSA:106+OSA] = KinematicsLib().batch_euler_angles_from_dir_cos_angles(y_true_angles.view(-1, 24, 3).clone()).contiguous().view(-1, 72) - y_pred_cnn[:, 13+OSA:85+OSA]
 
             y_pred_cnn[:, 34+OSA:106+OSA] = torch.mul(y_true_synth_real_switch.unsqueeze(1), y_pred_cnn[:, 34+OSA:106+OSA].clone())

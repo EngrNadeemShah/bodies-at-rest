@@ -52,7 +52,7 @@ HIGH_TAXEL_THRESH_Y = (NUMOFTAXELS_Y - 1)
 
 class VisualizationLib():
 
-    def print_error_train(self, target, score, output_size, loss_vector_type = None, data = None, printerror = True):
+    def print_error_train(self, target, score, output_size, data = None, printerror = True):
 
 
 
@@ -108,7 +108,7 @@ class VisualizationLib():
         #return error_avg[:,3], error_std[:,3]
         return error_norm, error_avg[:,3], error_std[:,3]
 
-    def print_error_val(self, target, score, output_size, loss_vector_type = None, data = None, printerror = True):
+    def print_error_val(self, target, score, output_size, data = None, printerror = True):
 
         if target.shape[1] == 72:
             target = target.reshape(-1, 24, 3)
