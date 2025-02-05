@@ -17,29 +17,31 @@ from mesh_depth_lib_br import MeshDepthLib
 
 
 class CNN(nn.Module):
-    def __init__(self, out_size, loss_type, batch_size, verts_list, in_channels = 3):
+    def __init__(self, convnet_fc_output_size, loss_type, vertices, in_channels = 3):
         '''
         Create components of a CNN classifier and initialize their weights.
 
         Arguments:
-            mat_size (tuple): A tuple of ints with (channels, height, width)
-            hidden_dim (int): Number of hidden activations to use
-            kernel_size (int): Width and height of (square) convolution filters
-            out_size (int): Number of classes to score
+        convnet_fc_output_size: int, number of output units in the fully connected layer
+        loss_type: string, type of loss function to use
+        vertices: list of ints, indices of the vertices to use in the mesh
+        in_channels: int, number of channels in the input images
         '''
 
         super(CNN, self).__init__()
-        #############################################################################
-        # TODO: Initialize anything you need for the forward pass
-        #############################################################################
-        #print mat_size
-        self.loss_vector_type = loss_vector_type
 
+        self.loss_type = loss_type
+        self.vertices = vertices
         self.count = 0
+
+        self.GPU = torch.cuda.is_available()
+        self.dtype = torch.cuda.FloatTensor if self.GPU else torch.FloatTensor
+
+        # # Determine if CUDA is available and set the device accordingly
+        # self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
         self.CNN_pack1 = nn.Sequential(
-
             nn.Conv2d(in_channels, 192, kernel_size=7, stride=2, padding=3),
             nn.ReLU(inplace=True),
             nn.Dropout(p=0.1, inplace=False),
@@ -53,11 +55,9 @@ class CNN(nn.Module):
             nn.Conv2d(384, 384, kernel_size=3, stride=1, padding=0),
             nn.ReLU(inplace=True),
             nn.Dropout(p=0.1, inplace=False),
-
         )
 
         self.CNN_packtanh = nn.Sequential(
-
             nn.Conv2d(in_channels, 192, kernel_size=7, stride=2, padding=3),
             nn.Tanh(),
             nn.Dropout(p=0.1, inplace=False),
@@ -74,7 +74,6 @@ class CNN(nn.Module):
         )
 
         self.CNN_packtanh_double = nn.Sequential(
-
             nn.Conv2d(in_channels, 384, kernel_size=7, stride=2, padding=3),
             nn.Tanh(),
             nn.Dropout(p=0.1, inplace=False),
@@ -91,7 +90,6 @@ class CNN(nn.Module):
         )
 
         self.CNN_pack2 = nn.Sequential(
-
             nn.Conv2d(in_channels, 32, kernel_size = 7, stride = 2, padding = 3),
             nn.ReLU(inplace = True),
             nn.Dropout(p = 0.1, inplace=False),
@@ -105,38 +103,17 @@ class CNN(nn.Module):
             nn.Conv2d(64, 64, kernel_size=3, stride=1, padding= 0),
             nn.ReLU(inplace=True),
             nn.Dropout(p = 0.1, inplace=False),
-
         )
 
 
-        self.CNN_fc1 = nn.Sequential(
-            nn.Linear(67200, out_size), #89600, out_size),
-        )
-        self.CNN_fc1_double = nn.Sequential(
-            nn.Linear(67200*2, out_size), #89600, out_size),
-        )
-
-
-        if torch.cuda.is_available():
-            self.GPU = True
-            # Use for self.GPU
-            dtype = torch.cuda.FloatTensor
-        else:
-            self.GPU = False
-            # Use for CPU
-            dtype = torch.FloatTensor
-        self.dtype = dtype
-
-        self.verts_list = verts_list
-        # self.meshDepthLib = MeshDepthLib(loss_vector_type, batch_size, verts_list = self.verts_list)
-        # not needed here, it's only needed in the PhysicalTrainer.train_convnet -> UnpackBatchLib().unpack_batch -> model.CNN.forward_kinematic_angles
-
+        self.CNN_fc1 = nn.Sequential(nn.Linear(67200, convnet_fc_output_size))          # 89600, convnet_fc_output_size
+        self.CNN_fc1_double = nn.Sequential(nn.Linear(67200*2, convnet_fc_output_size)) # 89600, convnet_fc_output_size
 
 
     def forward_kinematic_angles(self, x_images, y_true_gender_switch, y_true_synth_real_switch, CTRL_PNL, OUTPUT_EST_DICT,
                                  y_true_markers_xyz=None, is_training = True, y_true_betas=None, y_true_angles = None, y_true_root_xyz = None):
 
-        #cut out the sobel and contact channels
+        # Cut out the sobel and contact channels
         if CTRL_PNL['omit_cntct_sobel'] == True:
 
             if CTRL_PNL['cal_noise'] == True:
@@ -153,7 +130,6 @@ class CNN(nn.Module):
         self.GPU = CTRL_PNL['GPU']
         self.dtype = CTRL_PNL['dtype']
 
-        #print(torch.cuda.max_memory_allocated(), 'conv0', images.size())
         if CTRL_PNL['first_pass'] == False:
             x = self.SMPL_meshDepthLib.bounds
             #print blah
@@ -168,11 +144,10 @@ class CNN(nn.Module):
                 self.GPU = False
                 self.dtype = torch.FloatTensor
             if CTRL_PNL['depth_map_output'] == True:
-                self.verts_list = "all"
+                self.vertices = "all"
             else:
-                self.verts_list = [1325, 336, 1032, 4515, 1374, 4848, 1739, 5209, 1960, 5423]
-            self.SMPL_meshDepthLib = MeshDepthLib(loss_type=self.loss_type,
-                                             batch_size=x_images.size(0), verts_list = self.verts_list)
+                self.vertices = [1325, 336, 1032, 4515, 1374, 4848, 1739, 5209, 1960, 5423]
+            self.SMPL_meshDepthLib = MeshDepthLib(loss_type=self.loss_type, batch_size=x_images.size(0), verts_list = self.vertices)
 
         if CTRL_PNL['all_tanh_activ'] == True:
             if CTRL_PNL['double_network_size'] == False:
@@ -189,7 +164,7 @@ class CNN(nn.Module):
         # This combines the height, width, and filters into a single dimension
         scores_cnn = scores_cnn.view(x_images.size(0),scores_size[1] *scores_size[2]*scores_size[3])
 
-        # this output is N x 85: betas, root shift, angles
+        # This output is N x 85: betas, root shift, angles
         if CTRL_PNL['double_network_size'] == False:
             y_pred_cnn = self.CNN_fc1(scores_cnn)
         else:
@@ -202,16 +177,6 @@ class CNN(nn.Module):
         else:
             y_pred_cnn = torch.mul(y_pred_cnn.clone(), 0.01)
 
-        #normalize the output of the network based on the range of the parameters
-        #if self.GPU == True:
-        #    output_norm = 10*[6.0] + [0.91, 1.98, 0.15] + 6*[2.0] + list(torch.abs(self.meshDepthLib.bounds.view(72, 2)[3:, 1] - self.meshDepthLib.bounds.view(72,2)[3:, 0]).cpu().numpy())
-        #else:
-        #    output_norm = 10*[6.0] + [0.91, 1.98, 0.15] + 6*[2.0] + list(torch.abs(self.meshDepthLib.bounds.view(72, 2)[3:, 1] - self.meshDepthLib.bounds.view(72, 2)[3:, 0]).numpy())
-        #for i in range(88):
-        #    scores[:, i] = torch.mul(scores[:, i].clone(), output_norm[i])
-
-
-        #add a factor so the model starts close to the home position. Has nothing to do with weighting.
 
         if CTRL_PNL['lock_root'] == True:
             y_pred_cnn[:, 10] = torch.add(y_pred_cnn[:, 10].clone(), 0.6).detach()
@@ -224,7 +189,6 @@ class CNN(nn.Module):
             y_pred_cnn[:, 11] = torch.add(y_pred_cnn[:, 11].clone(), 1.2)
             y_pred_cnn[:, 12] = torch.add(y_pred_cnn[:, 12].clone(), 0.1)
 
-        #scores[:, 12] = torch.add(scores[:, 12].clone(), 0.06)
 
         if CTRL_PNL['full_body_rot'] == True:
 
@@ -252,7 +216,6 @@ class CNN(nn.Module):
 
 
 
-        #print scores[0, 0:10]
         if CTRL_PNL['adjust_ang_from_est'] == True:
             y_pred_cnn[:, 0:10] =  OUTPUT_EST_DICT['betas'] + y_pred_cnn[:, 0:10].clone()
             y_pred_cnn[:, 10:13] = OUTPUT_EST_DICT['root_shift'] + y_pred_cnn[:, 10:13].clone()
@@ -281,10 +244,8 @@ class CNN(nn.Module):
             y_pred_cnn[:, 0:10] = y_pred_cnn[:, 0:10].tanh()
             y_pred_cnn[:, 0:10] *= 3.
 
-        #print self.meshDepthLib.bounds
 
-        test_ground_truth = False #can only use True when the dataset is entirely synthetic AND when we use anglesDC
-        #is_training = True
+        test_ground_truth = False # can only use True when the dataset is entirely synthetic AND when we use anglesDC
 
         if test_ground_truth == False or is_training == False:
             # make sure the estimated betas are reasonable.
@@ -340,8 +301,6 @@ class CNN(nn.Module):
 
 
                 y_pred_angles_rot_mat = KinematicsLib().batch_rodrigues(y_pred_cnn[:, 13+OSA:85+OSA].view(-1, 24, 3).clone()).view(-1, 24, 3, 3)
-
-        #print Rs_est[0, :]
 
 
         OUTPUT_DICT['y_pred_betas_post_clip']       = y_pred_cnn[:, 0:10].clone().data
@@ -437,16 +396,16 @@ class CNN(nn.Module):
             y_pred_markers_xyz = y_pred_markers_xyz - SMPL_pred_J[:, 0:1, :] + y_pred_root_xyz.unsqueeze(1)
 
             # assemble a reduced form of the transformed mesh
-            SMPL_pred_v_shaped_red = torch.stack([SMPL_pred_v_shaped[:, self.verts_list[0], :],
-                                        SMPL_pred_v_shaped[:, self.verts_list[1], :],  # head
-                                        SMPL_pred_v_shaped[:, self.verts_list[2], :],  # l knee
-                                        SMPL_pred_v_shaped[:, self.verts_list[3], :],  # r knee
-                                        SMPL_pred_v_shaped[:, self.verts_list[4], :],  # l ankle
-                                        SMPL_pred_v_shaped[:, self.verts_list[5], :],  # r ankle
-                                        SMPL_pred_v_shaped[:, self.verts_list[6], :],  # l elbow
-                                        SMPL_pred_v_shaped[:, self.verts_list[7], :],  # r elbow
-                                        SMPL_pred_v_shaped[:, self.verts_list[8], :],  # l wrist
-                                        SMPL_pred_v_shaped[:, self.verts_list[9], :]]).permute(1, 0, 2)  # r wrist
+            SMPL_pred_v_shaped_red = torch.stack([SMPL_pred_v_shaped[:, self.vertices[0], :],
+                                        SMPL_pred_v_shaped[:, self.vertices[1], :],  # head
+                                        SMPL_pred_v_shaped[:, self.vertices[2], :],  # l knee
+                                        SMPL_pred_v_shaped[:, self.vertices[3], :],  # r knee
+                                        SMPL_pred_v_shaped[:, self.vertices[4], :],  # l ankle
+                                        SMPL_pred_v_shaped[:, self.vertices[5], :],  # r ankle
+                                        SMPL_pred_v_shaped[:, self.vertices[6], :],  # l elbow
+                                        SMPL_pred_v_shaped[:, self.vertices[7], :],  # r elbow
+                                        SMPL_pred_v_shaped[:, self.vertices[8], :],  # l wrist
+                                        SMPL_pred_v_shaped[:, self.vertices[9], :]]).permute(1, 0, 2)  # r wrist
             # y_pred_angles_rot_mat_pose_feature = (y_pred_angles_rot_mat[:, 1:, :, :]).sub(1.0, torch.eye(3).type(self.dtype)).view(-1, 207)   # replaced by Nadeem, as .sub is deprecated
             y_pred_angles_rot_mat_pose_feature = (y_pred_angles_rot_mat[:, 1:, :, :] - torch.eye(3).type(self.dtype)).view(-1, 207)
             SMPL_posedirs = torch.bmm(y_true_gender_switch, self.SMPL_meshDepthLib.SMPL_posedirs_repeat[0:current_batch_size, :, :]) \
@@ -470,7 +429,6 @@ class CNN(nn.Module):
             OUTPUT_DICT['batch_cm_est'] = None
 
 
-        #print verts[0:10], 'VERTS EST INIT'
         OUTPUT_DICT['SMPL_pred_verts'] = SMPL_pred_verts.clone().detach().cpu().numpy()
 
         SMPL_pred_targets_detached = torch.Tensor(y_pred_markers_xyz.clone().detach().cpu().numpy()).type(self.dtype)
@@ -479,8 +437,8 @@ class CNN(nn.Module):
             SMPL_pred_verts_offset[:, real_joint, :] = SMPL_pred_verts_offset[:, real_joint, :] - SMPL_pred_targets_detached[:, synth_joint_addressed[real_joint], :]
 
 
-        #here we need to the ground truth to make it a surface point for the mocap markers
-        #if is_training == True:
+        # here we need to the ground truth to make it a surface point for the mocap markers
+        # if is_training == True:
         y_true_synth_real_switch_repeated = y_true_synth_real_switch.unsqueeze(1).repeat(1, 3)
         for real_joint in range(10):
             y_pred_markers_xyz[:, synth_joint_addressed[real_joint], :] = y_true_synth_real_switch_repeated * y_pred_markers_xyz[:, synth_joint_addressed[real_joint], :].clone() \
@@ -498,7 +456,7 @@ class CNN(nn.Module):
         y_pred_cnn = y_pred_cnn.squeeze(0)
 
 
-        #tweak this to change the lengths vector
+        # tweak this to change the lengths vector
         y_pred_cnn[:, 34+add_idx+OSA:106+add_idx+OSA] = torch.mul(y_pred_markers_xyz[:, 0:72], 1.)
 
         y_pred_cnn[:, 0:10] = torch.mul(y_true_synth_real_switch.unsqueeze(1), torch.sub(y_pred_cnn[:, 0:10], y_true_betas))#*.2
@@ -513,7 +471,7 @@ class CNN(nn.Module):
 
             #print euler_root_rot_gt[0, :], 'body rot angles gt'
 
-        #compare the output angles to the target values
+        # compare the output angles to the target values
         if reg_angles == True:
             if self.loss_type == 'anglesDC':
                 y_pred_cnn[:, 34+OSA:106+OSA] = y_true_angles.clone().view(-1, 72) - y_pred_cnn[:, 13+OSA:85+OSA]
@@ -526,7 +484,7 @@ class CNN(nn.Module):
 
 
 
-        #compare the output joints to the target values
+        # compare the output joints to the target values
 
         y_pred_cnn[:, 34+add_idx+OSA:106+add_idx+OSA] = y_true_markers_xyz[:, 0:72]/1000 - y_pred_cnn[:, 34+add_idx+OSA:106+add_idx+OSA]
         y_pred_cnn[:, 106+add_idx+OSA:178+add_idx+OSA] = ((y_pred_cnn[:, 34+add_idx+OSA:106+add_idx+OSA].clone())+0.0000001).pow(2)
@@ -557,10 +515,6 @@ class CNN(nn.Module):
             y_pred_cnn[:, 10:16] = torch.mul(y_pred_cnn[:, 10:16].clone(), (1/0.3684988513298487))#0.2130542427733348)*np.pi) #weight the body rotation by the std
         y_pred_cnn[:, 10+OSA:34+OSA] = torch.mul(y_pred_cnn[:, 10+OSA:34+OSA].clone(), (1/0.1752780723422608))#0.1282715100608753)) #weight the 24 joints by std
         if reg_angles == True: y_pred_cnn[:, 34+OSA:106+OSA] = torch.mul(y_pred_cnn[:, 34+OSA:106+OSA].clone(), (1/0.29641429463719227))#0.2130542427733348)) #weight the angles by how many there are
-
-        #scores[:, 0:10] = torch.mul(scores[:, 0:10].clone(), (1./10)) #weight the betas by how many betas there are
-        #scores[:, 10:34] = torch.mul(scores[:, 10:34].clone(), (1./24)) #weight the joints by how many there are
-        #if reg_angles == True: scores[:, 34:106] = torch.mul(scores[:, 34:106].clone(), (1./72)) #weight the angles by how many there are
 
 
         return y_pred_cnn, OUTPUT_DICT
