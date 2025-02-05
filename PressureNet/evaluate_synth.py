@@ -465,11 +465,11 @@ class PhysicalTrainer():
                 elif viz_type == "leg_correction":
                     ims_to_display.append(INPUT_DICT['x_images'][0, 4, :]*23.) #pmat
                     ims_to_display.append(INPUT_DICT['x_images'][0, 2, :]*45.) #Q-, 1
-                    ims_to_display.append(INPUT_DICT['batch_mdm'].data.numpy().reshape(64, 27)*-1) #Q-, GT
+                    ims_to_display.append(INPUT_DICT['depth_map'].data.numpy().reshape(64, 27)*-1) #Q-, GT
                     ims_to_display.append(INPUT_DICT['x_images'][0, 4, :]*23.) #pmat
                     ims_to_display.append(INPUT_DICT['x_images'][0, 2, :]*45.) #Q-, 1
                     ims_to_display.append(OUTPUT_DICT['batch_mdm_est'].data.numpy().reshape(64, 27)*-1) #Q-, 2
-                    ims_to_display.append(INPUT_DICT['batch_mdm'].data.numpy().reshape(64, 27)*-1) #Q-, GT
+                    ims_to_display.append(INPUT_DICT['depth_map'].data.numpy().reshape(64, 27)*-1) #Q-, GT
                     segment_limbs = True
 
                 print(np.shape(ims_to_display[-1]))

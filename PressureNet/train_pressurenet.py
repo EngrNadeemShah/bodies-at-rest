@@ -341,17 +341,17 @@ class PhysicalTrainer():
 					loss = (loss_betas + loss_eucl + loss_bodyrot)
 
 
-				#print INPUT_DICT['batch_mdm'].size(), OUTPUT_DICT['batch_mdm_est'].size()
+				#print INPUT_DICT['depth_map'].size(), OUTPUT_DICT['batch_mdm_est'].size()
 				if self.config['depth_map_labels'] == True:
 					hover_map = OUTPUT_DICT['batch_mdm_est'].clone()
 					hover_map[hover_map < 0] = 0
 
-					INPUT_DICT['batch_mdm'][INPUT_DICT['batch_mdm'] > 0] = 0
+					INPUT_DICT['depth_map'][INPUT_DICT['depth_map'] > 0] = 0
 					if self.config['mesh_bottom_dist'] == True:
 						OUTPUT_DICT['batch_mdm_est'][OUTPUT_DICT['batch_mdm_est'] > 0] = 0
 
-					loss_mesh_depth = self.criterion2(INPUT_DICT['batch_mdm'], OUTPUT_DICT['batch_mdm_est'])*self.weight_depth_planes * (1. / 44.46155340000357) * (1. / 44.46155340000357)
-					loss_mesh_contact = self.criterion(INPUT_DICT['batch_cm'], OUTPUT_DICT['batch_cm_est'])*self.weight_depth_planes * (1. / 0.4428100696329912)
+					loss_mesh_depth = self.criterion2(INPUT_DICT['depth_map'], OUTPUT_DICT['batch_mdm_est'])*self.weight_depth_planes * (1. / 44.46155340000357) * (1. / 44.46155340000357)
+					loss_mesh_contact = self.criterion(INPUT_DICT['contact_map'], OUTPUT_DICT['batch_cm_est'])*self.weight_depth_planes * (1. / 0.4428100696329912)
 
 					loss += loss_mesh_depth
 					loss += loss_mesh_contact
@@ -388,8 +388,8 @@ class PhysicalTrainer():
 						self.pmap_recon = (OUTPUT_DICT['batch_mdm_est'][im_display_idx, :, :].squeeze()*-1).cpu().data #est depth output
 						self.cntct_recon = (OUTPUT_DICT['batch_cm_est'][im_display_idx, :, :].squeeze()).cpu().data #est depth output
 						self.hover_recon = (hover_map[im_display_idx, :, :].squeeze()).cpu().data #est depth output
-						self.pmap_recon_gt = (INPUT_DICT['batch_mdm'][im_display_idx, :, :].squeeze()*-1).cpu().data #ground truth depth
-						self.cntct_recon_gt = (INPUT_DICT['batch_cm'][im_display_idx, :, :].squeeze()).cpu().data #ground truth depth
+						self.pmap_recon_gt = (INPUT_DICT['depth_map'][im_display_idx, :, :].squeeze()*-1).cpu().data #ground truth depth
+						self.cntct_recon_gt = (INPUT_DICT['contact_map'][im_display_idx, :, :].squeeze()).cpu().data #ground truth depth
 					else:
 						self.cntct_in = INPUT_DICT['x_images'][im_display_idx, 0, :].squeeze().cpu()/self.config['norm_std_coeffs'][0]  #contact
 						self.pimage_in = INPUT_DICT['x_images'][im_display_idx, 1, :].squeeze().cpu()/self.config['norm_std_coeffs'][4]  #pmat

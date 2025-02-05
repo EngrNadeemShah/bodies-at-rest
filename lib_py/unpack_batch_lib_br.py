@@ -73,25 +73,50 @@ class UnpackBatchLib():
                 adj_ext_idx += 1
                 batch.append(batch[1][:, 247:253])	# 'root_atan2_est'
 
-            extra_smpl_angles = batch[10]
-            extra_targets = batch[11]
+            angles_est = batch[10]      # old name: extra_smpl_angles
+            root_xyz_est = batch[11]    # old name: extra_targets
         else:
-            extra_smpl_angles = None
-            extra_targets = None
+            angles_est = None
+            root_xyz_est = None
+
+
+        # labels (y)
+        # batch[1]  |   0:72      - markers_xyz_m
+        # batch[2]  |   72:82     - body_shape
+        # batch[3]  |   82:154    - joint_angles
+        # batch[4]  |   154:157   - root_xyz_shift
+        # batch[5]  |   157:159   - g1, g2 (gender switch)
+        # batch[6]  |   159       - s1 (synth vs real)
+        # batch[7]  |   160       - body_mass
+        # batch[8]  |   161       - body_height
+
+        # when mod 2 (adjust_ang_from_est) is true, we have the following additional labels
+        # batch[9]  |   162:172   - betas_est
+        # batch[10] |   172:244   - angles_est
+        # batch[11] |   244:247   - root_xyz_est
+        # batch[12] |   247:253   - root_atan2_est
+
+        # inputs (x)
+        # batch[0]  |   0:3 or 0:6
+            # mod 1: 0: PM Contact, 1: PM, 2: PM Sobel
+            # mod 2: 0: PM Contact, 1: DM Est +, 2: DM Est -, 3: CM Est, 4: PM, 5: PM Sobel
+        # batch[13] |   depth_map
+        # batch[14] |   contact_map
 
 
         if config['depth_map_labels'] and (config['depth_map_labels_test'] or is_training):
-            batch.append(batch[0][:, config['num_input_channels_batch0'], : , :])       # mesh depth matrix
-            batch.append(batch[0][:, config['num_input_channels_batch0'] + 1, : ,:])    # mesh contact matrix
+            batch.append(batch[0][:, config['num_input_channels_batch0'], : , :])       # depth_map
+            batch.append(batch[0][:, config['num_input_channels_batch0'] + 1, : ,:])    # contact_map
 
-            # cut off batch 0 so we don't have depth or contact on the input
+            # cut off batch 0 so we don't have depth_map and contact_map in the input
             batch[0] = batch[0][:, :config['num_input_channels_batch0'], :, :]
 
-        # cut it off so batch[2] is only the xyz marker targets
+        # cut it off so batch[1] is only the xyz marker targets
         batch[1] = batch[1][:, :72]     # markers_xyz_m
 
         x_images_ = batch[0].numpy()
 
+        # depth_map and contact_map are not included in this input
         INPUT_DICT['x_images'] = np.copy(x_images_)
 
 
@@ -131,29 +156,29 @@ class UnpackBatchLib():
             x_images = torch.cat((x_images, weight_input, height_input), 1)
 
 
-        y_true_markers_xyz, y_true_betas = Variable(batch[1].type(config['dtype']), requires_grad=False), \
+        y_true_markers_xyz, y_true_body_shape = Variable(batch[1].type(config['dtype']), requires_grad=False), \
                          Variable(batch[2].type(config['dtype']), requires_grad=False)
 
-        y_true_angles = Variable(batch[3].type(config['dtype']), requires_grad=is_training)
+        y_true_joint_angles = Variable(batch[3].type(config['dtype']), requires_grad=is_training)
         y_true_root_xyz = Variable(batch[4].type(config['dtype']), requires_grad=is_training)
         y_true_gender_switch = Variable(batch[5].type(config['dtype']), requires_grad=is_training)
         y_true_synth_real_switch = Variable(batch[6].type(config['dtype']), requires_grad=is_training)
 
         OUTPUT_EST_DICT = {}
         if config['adjust_ang_from_est'] == True:     # False in our case, therefore OUTPUT_EST_DICT remains empty
-            OUTPUT_EST_DICT['betas'] = Variable(batch[9].type(config['dtype']), requires_grad=is_training)
-            OUTPUT_EST_DICT['angles'] = Variable(extra_smpl_angles.type(config['dtype']), requires_grad=is_training)
-            OUTPUT_EST_DICT['root_shift'] = Variable(extra_targets.type(config['dtype']), requires_grad=is_training)
+            OUTPUT_EST_DICT['betas_est'] = Variable(batch[9].type(config['dtype']), requires_grad=is_training)
+            OUTPUT_EST_DICT['angles_est'] = Variable(angles_est.type(config['dtype']), requires_grad=is_training)
+            OUTPUT_EST_DICT['root_xyz_est'] = Variable(root_xyz_est.type(config['dtype']), requires_grad=is_training)
             if config['full_body_rot'] == True:
-                OUTPUT_EST_DICT['root_atan2'] = Variable(batch[12].type(config['dtype']), requires_grad=is_training)
+                OUTPUT_EST_DICT['root_atan2_est'] = Variable(batch[12].type(config['dtype']), requires_grad=is_training)
 
         if config['depth_map_labels'] == True:        # False in our case
             if config['depth_map_labels_test'] == True or is_training == True:
-                INPUT_DICT['batch_mdm'] = batch[9+adj_ext_idx].type(config['dtype'])
-                INPUT_DICT['batch_cm'] = batch[10+adj_ext_idx].type(config['dtype'])
+                INPUT_DICT['depth_map'] = batch[9+adj_ext_idx].type(config['dtype'])
+                INPUT_DICT['contact_map'] = batch[10+adj_ext_idx].type(config['dtype'])
         else:
-            INPUT_DICT['batch_mdm'] = None
-            INPUT_DICT['batch_cm'] = None
+            INPUT_DICT['depth_map'] = None
+            INPUT_DICT['contact_map'] = None
 
 
         if config['omit_cntct_sobel'] == True:        # False in our case
@@ -169,16 +194,19 @@ class UnpackBatchLib():
             x_images[:, 1, :, :] *= 0
 
 
-        scores, OUTPUT_DICT = model.forward_kinematic_angles(x_images = x_images,
-                                                             y_true_markers_xyz = y_true_markers_xyz,
-                                                             y_true_betas = y_true_betas,
-                                                             y_true_angles = y_true_angles,
-                                                             y_true_root_xyz = y_true_root_xyz,
-                                                             y_true_gender_switch = y_true_gender_switch,
-                                                             y_true_synth_real_switch = y_true_synth_real_switch,
-                                                             CTRL_PNL = config,
-                                                             OUTPUT_EST_DICT = OUTPUT_EST_DICT,
-                                                             is_training = is_training,
+        # x_images:
+            # depth_map, contact_map are excluded
+            # height, weight channels are included
+        scores, OUTPUT_DICT = model.forward_kinematic_angles(x_images               = x_images,
+                                                             y_true_markers_xyz     = y_true_markers_xyz,
+                                                             y_true_body_shape      = y_true_body_shape,
+                                                             y_true_joint_angles    = y_true_joint_angles,
+                                                             y_true_root_xyz        = y_true_root_xyz,
+                                                             y_true_gender_switch   = y_true_gender_switch,
+                                                             y_true_synth_real_switch= y_true_synth_real_switch,
+                                                             config                 = config,
+                                                             OUTPUT_EST_DICT        = OUTPUT_EST_DICT,
+                                                             is_training            = is_training,
                                                              )  # scores is a variable with 27 for 10 euclidean errors and 17 lengths in meters. targets est is a numpy array in mm.
 
 

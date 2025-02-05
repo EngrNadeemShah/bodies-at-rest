@@ -260,7 +260,17 @@ class DatasetClass(Dataset):
 
 
 		# Concatenate only the necessary input channels (if they exist)
-		# The order should be: [pressure_map_contact_mask, depth_map_estimated_positive, depth_map_estimated_negative, contact_map_estimated_x100, pressure_map, pressure_map_sobel_filtered, depth_map, contact_map]
+		# The order should be:
+		# mod 2 | mod 1
+			# 0 | 0: pressure_map_contact_mask,
+			# 1 | _: depth_map_estimated_positive,
+			# 2 | _: depth_map_estimated_negative,
+			# 3 | _: contact_map_estimated_x100,
+			# 4 | 1: pressure_map,
+			# 5 | 2: pressure_map_sobel_filtered,
+			# 6 | _: depth_map,
+			# 7 | _: contact_map.
+
 		input_x = np.array([pressure_map_contact_mask])
 
 		if self.config['depth_map_input_est']:
@@ -302,6 +312,7 @@ class DatasetClass(Dataset):
 
 		if self.creation_type == 'synth':
 			if self.config['loss_type'] != 'direct':
+
 				label_y = np.concatenate([
 					file_data['markers_xyz_m'][data_idx][:72] * 1000 + z_adj_all,
 					file_data['body_shape'][data_idx][:10],
@@ -311,6 +322,7 @@ class DatasetClass(Dataset):
 					[file_data['body_mass'][data_idx]],
 					[(file_data['body_height'][data_idx] - 1.) * 100]
 				])
+
 				if self.config['adjust_ang_from_est']:
 					label_y = np.concatenate([
 						label_y,
@@ -318,8 +330,10 @@ class DatasetClass(Dataset):
 						file_data['angles_est'][data_idx][:72],
 						file_data['root_xyz_est'][data_idx][:3]
 					])
+
 					if full_body_rot:
 						label_y = np.concatenate([label_y, file_data['root_atan2_est'][data_idx][:6]])
+
 			elif self.config['loss_type'] == 'direct':
 				label_y = np.concatenate([
 					np.zeros(9),
@@ -349,6 +363,7 @@ class DatasetClass(Dataset):
 						file_data['angles_est'][data_idx][:72],
 						file_data['root_xyz_est'][data_idx][:3]
 					])
+
 		elif self.creation_type == 'real':
 			label_y = np.concatenate([
 				np.zeros(9),
