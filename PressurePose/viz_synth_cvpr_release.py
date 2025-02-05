@@ -85,7 +85,7 @@ class PhysicalTrainer():
         self.CTRL_PNL['lock_root'] = False
         self.CTRL_PNL['num_input_channels'] = 2
         self.CTRL_PNL['GPU'] = False
-        self.CTRL_PNL['regr_angles'] = False
+        self.CTRL_PNL['regress_angles'] = False
         self.CTRL_PNL['aws'] = False
         self.CTRL_PNL['depth_map_labels'] = True #can only be true if we have 100% synthetic data for training
         self.CTRL_PNL['depth_map_labels_test'] = True #can only be true is we have 100% synth for testing

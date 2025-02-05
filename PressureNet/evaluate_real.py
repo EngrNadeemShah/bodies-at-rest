@@ -127,7 +127,7 @@ class Viz3DPose():
         self.CTRL_PNL['GPU'] = GPU
         self.CTRL_PNL['dtype'] = dtype
         self.CTRL_PNL['repeat_real_data_ct'] = 1
-        self.CTRL_PNL['regr_angles'] = 1
+        self.CTRL_PNL['regress_angles'] = 1
         self.CTRL_PNL['dropout'] = DROPOUT
         self.CTRL_PNL['depth_map_labels'] = False
         self.CTRL_PNL['depth_map_output'] = True

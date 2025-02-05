@@ -114,7 +114,7 @@ class PhysicalTrainer():
         self.CTRL_PNL['GPU'] = GPU
         self.CTRL_PNL['dtype'] = dtype
         repeat_real_data_ct = 3
-        self.CTRL_PNL['regr_angles'] = opt.reg_angles
+        self.CTRL_PNL['regress_angles'] = opt.regress_angles
         self.CTRL_PNL['depth_map_labels'] = False #can only be true if we have 100% synthetic data for training
         self.CTRL_PNL['depth_map_labels_test'] = False #can only be true is we have 100% synth for testing
         self.CTRL_PNL['depth_map_output'] = True #self.CTRL_PNL['depth_map_labels']
@@ -796,7 +796,7 @@ if __name__ == "__main__":
                  help='number of batches between logging train status')
 
 
-    p.add_option('--rgangs', action='store_true', dest='reg_angles', default=False, #I found this option doesn't help much.
+    p.add_option('--regress_angles', action='store_true', dest='regress_angles', default=False, #I found this option doesn't help much.
                  help='Regress the angles as well as betas and joint pos.')
 
 
