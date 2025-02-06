@@ -271,12 +271,18 @@ class DatasetClass(Dataset):
 			# 6 | _: depth_map,
 			# 7 | _: contact_map.
 
-		input_x = np.array([pressure_map_contact_mask])
+		if not self.config['omit_cntct_sobel']:
+			input_x = np.array([pressure_map_contact_mask])
+		else:
+			input_x = np.array([])
 
 		if self.config['depth_map_input_est']:
 			input_x = np.concatenate((input_x, [depth_map_estimated_positive, depth_map_estimated_negative, contact_map_estimated_x100]), axis=0)
 
-		input_x = np.concatenate((input_x, [pressure_map, pressure_map_sobel_filtered]), axis=0)
+		if not self.config['omit_cntct_sobel']:
+			input_x = np.concatenate((input_x, [pressure_map, pressure_map_sobel_filtered]), axis=0)
+		else:
+			input_x = np.concatenate((input_x, [pressure_map]), axis=0)
 
 		if (self.test and self.config['depth_map_labels_test']) or (not self.test and self.config['depth_map_labels']):
 			input_x = np.concatenate((input_x, [depth_map, contact_map]), axis=0)
@@ -416,12 +422,12 @@ class DatasetClass(Dataset):
 			height_channel = np.full(shape=(1, input_x.shape[1], input_x.shape[2]), fill_value=label_y[161], dtype=np.float32)
 			input_x = np.concatenate((input_x, weight_channel, height_channel), axis=0)
 
-		# Omit the Contact (channel 0) & Sobel (channel 2 or 5) channels from the input by setting every pixel in these channels to 0
-		if self.config['omit_cntct_sobel']:
-			input_x[0] = 0
+		# # Omit the Contact (channel 0) & Sobel (channel 2 or 5) channels from the input by setting every pixel in these channels to 0
+		# if self.config['omit_cntct_sobel']:
+		# 	input_x[0] = 0
 
-			sobel_channel_index = 5 if self.config['depth_map_input_est'] else 2
-			input_x[sobel_channel_index] = 0
+		# 	sobel_channel_index = 5 if self.config['depth_map_input_est'] else 2
+		# 	input_x[sobel_channel_index] = 0
 
 		# Omit the depth_map_estimated_positive (channel 1) from the input by setting every pixel in this channel to 0
 		if self.config['use_hover'] == False and self.config['adjust_ang_from_est'] == True:
