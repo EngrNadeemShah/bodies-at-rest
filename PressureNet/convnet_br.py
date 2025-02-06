@@ -227,7 +227,7 @@ class CNN(nn.Module):
         OUTPUT_DICT['y_pred_root_xyz']  = y_pred_cnn[:, 10:13].clone().data
 
 
-        if regress_angles == True:
+        if config['regress_angles'] == True:
             add_idx = 72
         else:
             add_idx = 0
@@ -463,7 +463,7 @@ class CNN(nn.Module):
 
 
         # compare the output angles to the target values
-        if regress_angles == True:
+        if config['regress_angles'] == True:
             if self.loss_type == 'anglesDC':
                 y_pred_cnn[:, 34+OSA:106+OSA] = y_true_joint_angles.clone().view(-1, 72) - y_pred_cnn[:, 13+OSA:85+OSA]
                 y_pred_cnn[:, 34+OSA:106+OSA] = torch.mul(y_true_synth_real_switch.unsqueeze(1), torch.sub(y_pred_cnn[:, 34+OSA:106+OSA], y_true_joint_angles.clone().view(-1, 72)))
@@ -506,7 +506,7 @@ class CNN(nn.Module):
 
         y_pred_cnn[:, 10+OSA:34+OSA] = torch.mul(y_pred_cnn[:, 10+OSA:34+OSA].clone(), (1/0.1752780723422608))#0.1282715100608753)) #weight the 24 joints by std
 
-        if regress_angles == True: y_pred_cnn[:, 34+OSA:106+OSA] = torch.mul(y_pred_cnn[:, 34+OSA:106+OSA].clone(), (1/0.29641429463719227))#0.2130542427733348)) #weight the angles by how many there are
+        if config['regress_angles'] == True: y_pred_cnn[:, 34+OSA:106+OSA] = torch.mul(y_pred_cnn[:, 34+OSA:106+OSA].clone(), (1/0.29641429463719227))#0.2130542427733348)) #weight the angles by how many there are
 
 
         return y_pred_cnn, OUTPUT_DICT
