@@ -113,40 +113,14 @@ class CNN(nn.Module):
     def forward_kinematic_angles(self, x_images, y_true_gender_switch, y_true_synth_real_switch, config, OUTPUT_EST_DICT,
                                  y_true_markers_xyz=None, is_training = True, y_true_body_shape=None, y_true_joint_angles = None, y_true_root_xyz = None):
 
-        # Cut out the sobel and contact channels
-        if config['omit_cntct_sobel'] == True:
-            if config['cal_noise'] == True:
-                x_images = torch.cat((x_images[:, 1:config['num_input_channels_batch0'], :, :], x_images[:, config['num_input_channels_batch0']+1:, :, :]), dim = 1)
-            else:
-                x_images = torch.cat((x_images[:, 1:config['num_input_channels_batch0']-1, :, :], x_images[:, config['num_input_channels_batch0']:, :, :]), dim = 1)
-
-
-        regress_angles = config['regress_angles']
-
         OUTPUT_DICT = {}
 
-        self.GPU = config['GPU']
-        self.dtype = config['dtype']
+        if config['first_pass']:
+            self.vertices = "all" if config['depth_map_output'] else [1325, 336, 1032, 4515, 1374, 4848, 1739, 5209, 1960, 5423]
 
-        if config['first_pass'] == False:
-            x = self.SMPL_meshDepthLib.bounds
+            self.SMPL_meshDepthLib = MeshDepthLib(loss_type = self.loss_type, batch_size = x_images.size(0), vertices = self.vertices)
 
-        else:
-            if config['GPU'] == True:
-                self.GPU = True
-                self.dtype = torch.cuda.FloatTensor
-            else:
-                self.GPU = False
-                self.dtype = torch.FloatTensor
-
-            if config['depth_map_output'] == True:
-                self.vertices = "all"
-            else:
-                self.vertices = [1325, 336, 1032, 4515, 1374, 4848, 1739, 5209, 1960, 5423]
-
-            self.SMPL_meshDepthLib = MeshDepthLib(loss_type=self.loss_type, batch_size=x_images.size(0), verts_list = self.vertices)
-
-        if config['all_tanh_activ'] == True:
+        if config['all_tanh_activ']:
             if config['double_network_size'] == False:
                 scores_cnn = self.CNN_packtanh(x_images)
             else:
