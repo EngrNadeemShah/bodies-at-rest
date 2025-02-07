@@ -172,11 +172,10 @@ class DatasetClass(Dataset):
 		pressure_map_sobel_filtered = np.hypot(sx, sy)
 		visualization_dict['PM Sobel Initial'] = np.copy(pressure_map_sobel_filtered)
 
-
-		# Normalize the pressure map using standard deviation coefficients
+		# Normalize the pressure map
 		pressure_map *= self.config['norm_std_coeffs'][4]
 
-
+		# Apply noise to the pressure map
 		if self.config['cal_noise']:
 			if not self.test:
 				pressure_map_binary = np.where(pressure_map != 0, 1.0, pressure_map)
