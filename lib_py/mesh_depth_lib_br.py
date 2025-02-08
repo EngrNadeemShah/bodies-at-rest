@@ -31,8 +31,9 @@ class MeshDepthLib():
     def __init__(self, loss_type, batch_size, vertices):
         self.loss_type = loss_type
 
-        self.dtype = torch.FloatTensor
-        self.dtypeInt = torch.LongTensor
+        self.GPU = torch.cuda.is_available()
+        self.dtype = torch.FloatTensor if not self.GPU else torch.cuda.FloatTensor
+        self.dtypeInt = torch.LongTensor if not self.GPU else torch.cuda.LongTensor
 
         if self.loss_type == 'anglesDC':
             self.bounds = torch.Tensor([

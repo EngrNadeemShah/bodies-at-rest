@@ -174,31 +174,6 @@ def main():
 	# 	train(model, device, train_loader, optimizer, criterion, epoch)
 	# 	test(model, device, test_loader, criterion)
 
-	############################################################################################################
-	# SMPL model
-	import torch
-	import smplx
-
-
-	# Paths to the smpl model pkl files
-	# v1.0.0
-	smpl_female_model_path = 'smpl/models/basicModel_f_lbs_10_207_0_v1.0.0.pkl'
-	smpl_male_model_path = 'smpl/models/basicModel_m_lbs_10_207_0_v1.0.0.pkl'
-	# v1.1.0
-	smpl_female_model_path = 'smpl/models/basicmodel_f_lbs_10_207_0_v1.1.0.pkl'
-	smpl_male_model_path = 'smpl/models/basicmodel_m_lbs_10_207_0_v1.1.0.pkl'
-
-	# Check the GPU availability
-	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-	smpl_female_model = smplx.SMPL(model_path=smpl_female_model_path).to(device)
-
-	print(f'SMPL Female Model:')
-	print(f'v_template:		{smpl_female_model.v_template.shape}')
-	print(f'shapedirs:		{smpl_female_model.shapedirs.shape}')
-	print(f'J_regressor:		{smpl_female_model.J_regressor.shape}')
-	print(f'posedirs:		{smpl_female_model.posedirs.shape}')
-	print(f'weights:		{smpl_female_model.lbs_weights.shape}')
-	############################################################################################################
 
 	for train_batch_idx, train_batch in enumerate(train_loader):
 		inputs_batch, labels_batch = train_batch
