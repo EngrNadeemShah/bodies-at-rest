@@ -15,7 +15,7 @@ venv/
 *.sqlite3
 
 # IDE and editor files
-.vscode/
+# .vscode/
 .idea/
 *.swp
 
