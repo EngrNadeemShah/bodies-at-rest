@@ -182,8 +182,6 @@ class MeshDepthLib():
         self.SMPL_shapedirs_f = torch.Tensor(np.array(SMPL_model_female.shapedirs)).permute(0, 2, 1)
         self.SMPL_J_regressor_f = np.zeros((SMPL_model_female.J_regressor.shape)) + SMPL_model_female.J_regressor
         self.SMPL_J_regressor_f = torch.Tensor(np.array(self.SMPL_J_regressor_f).astype(float)).permute(1, 0)
-        # self.SMPL_posedirs_f = torch.Tensor(np.array(SMPL_model_female.posedirs))
-        # self.SMPL_weights_f = torch.Tensor(np.array(SMPL_model_female.weights))
 
         SMPL_path_male = '../smpl/models/basicmodel_m_lbs_10_207_0_v1.0.0.pkl'
         SMPL_model_male = load_model(SMPL_path_male)
@@ -191,15 +189,17 @@ class MeshDepthLib():
         self.SMPL_shapedirs_m = torch.Tensor(np.array(SMPL_model_male.shapedirs)).permute(0, 2, 1)
         self.SMPL_J_regressor_m = np.zeros((SMPL_model_male.J_regressor.shape)) + SMPL_model_male.J_regressor
         self.SMPL_J_regressor_m = torch.Tensor(np.array(self.SMPL_J_regressor_m).astype(float)).permute(1, 0)
-        self.SMPL_posedirs_m = torch.Tensor(np.array(SMPL_model_male.posedirs))
-        self.SMPL_weights_m = torch.Tensor(np.array(SMPL_model_male.weights))
 
+        self.parents = np.array(
+            [4294967295, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 9, 9, 12, 13, 14, 16, 17, 18, 19, 20, 21]).astype(
+            np.int32)
 
         if vertices == "all":   # mod 2
+            self.SMPL_posedirs_f = torch.Tensor(np.array(SMPL_model_female.posedirs))
+            self.SMPL_weights_f = torch.Tensor(np.array(SMPL_model_female.weights))
 
-            self.parents = np.array(
-                [4294967295, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 9, 9, 12, 13, 14, 16, 17, 18, 19, 20, 21]).astype(
-                np.int32)
+            self.SMPL_posedirs_m = torch.Tensor(np.array(SMPL_model_male.posedirs))
+            self.SMPL_weights_m = torch.Tensor(np.array(SMPL_model_male.weights))
 
             if batch_size == 128:
                 batch_sub_divider = 8
@@ -257,10 +257,6 @@ class MeshDepthLib():
             self.mesh_patching_array = torch.zeros((batch_size, 66, 29, 4)).type(self.dtype)
 
         else:                   # mod 1
-            self.parents = np.array(
-                [4294967295, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 9, 9, 12, 13, 14, 16, 17, 18, 19, 20, 21]).astype(
-                np.int32)
-
             self.SMPL_posedirs_f = torch.Tensor(np.stack([SMPL_model_female.posedirs[vertices[0], :, :],
                                                     SMPL_model_female.posedirs[vertices[1], :, :],
                                                     SMPL_model_female.posedirs[vertices[2], :, :],
@@ -282,6 +278,29 @@ class MeshDepthLib():
                                                     SMPL_model_female.weights[vertices[7], :],
                                                     SMPL_model_female.weights[vertices[8], :],
                                                     SMPL_model_female.weights[vertices[9], :]]))
+
+            self.SMPL_posedirs_m = torch.Tensor(np.stack([SMPL_model_male.posedirs[vertices[0], :, :],
+                                                    SMPL_model_male.posedirs[vertices[1], :, :],
+                                                    SMPL_model_male.posedirs[vertices[2], :, :],
+                                                    SMPL_model_male.posedirs[vertices[3], :, :],
+                                                    SMPL_model_male.posedirs[vertices[4], :, :],
+                                                    SMPL_model_male.posedirs[vertices[5], :, :],
+                                                    SMPL_model_male.posedirs[vertices[6], :, :],
+                                                    SMPL_model_male.posedirs[vertices[7], :, :],
+                                                    SMPL_model_male.posedirs[vertices[8], :, :],
+                                                    SMPL_model_male.posedirs[vertices[9], :,
+                                                    :]]))
+
+            self.SMPL_weights_m = torch.Tensor(np.stack([SMPL_model_male.weights[vertices[0], :],
+                                                    SMPL_model_male.weights[vertices[1], :],
+                                                    SMPL_model_male.weights[vertices[2], :],
+                                                    SMPL_model_male.weights[vertices[3], :],
+                                                    SMPL_model_male.weights[vertices[4], :],
+                                                    SMPL_model_male.weights[vertices[5], :],
+                                                    SMPL_model_male.weights[vertices[6], :],
+                                                    SMPL_model_male.weights[vertices[7], :],
+                                                    SMPL_model_male.weights[vertices[8], :],
+                                                    SMPL_model_male.weights[vertices[9], :]]))
 
             self.batch_size = batch_size
             self.SMPL_shapedirs_repeat_f = self.SMPL_shapedirs_f.unsqueeze(0).repeat(self.batch_size, 1, 1, 1).permute(0, 2, 1,
@@ -311,14 +330,14 @@ class MeshDepthLib():
             self.SMPL_posedirs_repeat_f = self.SMPL_posedirs_f.unsqueeze(0).repeat(self.batch_size, 1, 1, 1).unsqueeze(0)
             self.SMPL_posedirs_repeat_m = self.SMPL_posedirs_m.unsqueeze(0).repeat(self.batch_size, 1, 1, 1).unsqueeze(0)
             self.SMPL_posedirs_repeat = torch.cat((self.SMPL_posedirs_repeat_f, self.SMPL_posedirs_repeat_m), 0)
-            self.SMPL_posedirs_repeat = self.SMPL_posedirs_repeat.permute(1, 0, 2, 3, 4).view(self.batch_size, 2, self.SMPL_R*self.SMPL_D*207)
-            # self.SMPL_posedirs_repeat = self.SMPL_posedirs_repeat.permute(1, 0, 2, 3, 4).view(self.batch_size, 2, 10 * self.SMPL_D * 207)  # self.num_posedirs
+            # self.SMPL_posedirs_repeat = self.SMPL_posedirs_repeat.permute(1, 0, 2, 3, 4).view(self.batch_size, 2, self.SMPL_R*self.SMPL_D*207)
+            self.SMPL_posedirs_repeat = self.SMPL_posedirs_repeat.permute(1, 0, 2, 3, 4).view(self.batch_size, 2, 10 * self.SMPL_D * 207)  # self.num_posedirs
 
             self.SMPL_weights_repeat_f = self.SMPL_weights_f.unsqueeze(0).repeat(self.batch_size, 1, 1).unsqueeze(0)
             self.SMPL_weights_repeat_m = self.SMPL_weights_m.unsqueeze(0).repeat(self.batch_size, 1, 1).unsqueeze(0)
             self.SMPL_weights_repeat = torch.cat((self.SMPL_weights_repeat_f, self.SMPL_weights_repeat_m), 0)
             # self.weights_repeat = self.weights_repeat.permute(1, 0, 2, 3).view(self.N, 2, self.SMPL_R * 24)
-            self.SMPL_weights_repeat = self.SMPL_weights_repeat.permute(1, 0, 2, 3).view(self.batch_size, 2, self.SMPL_R * 24)
+            self.SMPL_weights_repeat = self.SMPL_weights_repeat.permute(1, 0, 2, 3).view(self.batch_size, 2, 10 * 24)
             if self.loss_type == 'anglesEU':
                 self.zeros_cartesian = torch.zeros([self.batch_size, 24])
                 self.ones_cartesian = torch.ones([self.batch_size, 24])
