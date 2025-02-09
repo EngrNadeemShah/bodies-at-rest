@@ -5,7 +5,7 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"name": "train_pressurenet.py --mod 1",
+			"name": "train_pressurenet.py",
 			"type": "debugpy",
 			"request": "launch",
 			"program": "${workspaceFolder}/PressureNet/train_pressurenet.py",
@@ -17,6 +17,22 @@
 			// 	"--mod",
 			// 	"1"
 			// ],
+		},
+
+		{
+			"name": "train.py",
+			"type": "debugpy",
+			"request": "launch",
+			"program": "${workspaceFolder}/train.py",
+			"console": "integratedTerminal",
+			"cwd": "${workspaceFolder}",
+			"args": ["${command:pickArgs}"],
+			"envFile": "${workspaceFolder}/.conda"
+			// "args": [
+			// 	"--mod",
+			// 	"1"
+			// ],
 		}
+
 	]
 }
