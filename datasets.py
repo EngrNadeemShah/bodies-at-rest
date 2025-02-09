@@ -209,4 +209,4 @@ class PressurePoseDataset(Dataset):
 		label_y = self._load_label(file_data, data_idx, gender)
 
 		# Convert the input and label data to PyTorch tensors
-		return torch.from_numpy(input_x), torch.from_numpy(label_y)
+		return torch.from_numpy(input_x).to(torch.float32), torch.from_numpy(label_y).to(torch.float32)
