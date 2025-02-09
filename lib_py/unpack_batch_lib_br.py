@@ -205,8 +205,18 @@ class UnpackBatchLib():
                 'root_xyz_est': batch[1][:, 244:247],
                 'root_atan2_est': batch[1][:, 247:253],
             }
+
+            INPUT_DICT = {
+                'depth_map': batch[0][:, -1, :, :],
+                'contact_map': batch[0][:, -2, :, :],
+            }
+
         else:
             OUTPUT_EST_DICT = None
+            INPUT_DICT = {
+                'depth_map': None,
+                'contact_map': None,
+            }
 
         scores, OUTPUT_DICT = model.forward_kinematic_angles(x_images               = batch[0],
                                                              y_true_markers_xyz     = batch[1][:, :72],
@@ -221,8 +231,8 @@ class UnpackBatchLib():
                                                              )  # scores is a variable with 27 for 10 euclidean errors and 17 lengths in meters. targets est is a numpy array in mm.
 
 
-        INPUT_DICT['x_images'] = x_images.data
-        INPUT_DICT['y_true_markers_xyz'] = y_true_markers_xyz.data
+        INPUT_DICT['x_images'] = batch[0]
+        INPUT_DICT['y_true_markers_xyz'] = batch[1][:, :72]
 
         return scores, INPUT_DICT, OUTPUT_DICT
 
