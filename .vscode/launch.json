@@ -12,6 +12,7 @@
 			"console": "integratedTerminal",
 			"cwd": "${workspaceFolder}/PressureNet",
 			"args": ["${command:pickArgs}"],
+			"envFile": "${workspaceFolder}/.conda"
 			// "args": [
 			// 	"--mod",
 			// 	"1"
