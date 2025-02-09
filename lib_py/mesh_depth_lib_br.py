@@ -182,8 +182,8 @@ class MeshDepthLib():
         self.SMPL_shapedirs_f = torch.Tensor(np.array(SMPL_model_female.shapedirs)).permute(0, 2, 1)
         self.SMPL_J_regressor_f = np.zeros((SMPL_model_female.J_regressor.shape)) + SMPL_model_female.J_regressor
         self.SMPL_J_regressor_f = torch.Tensor(np.array(self.SMPL_J_regressor_f).astype(float)).permute(1, 0)
-        self.SMPL_posedirs_f = torch.Tensor(np.array(SMPL_model_female.posedirs))
-        self.SMPL_weights_f = torch.Tensor(np.array(SMPL_model_female.weights))
+        # self.SMPL_posedirs_f = torch.Tensor(np.array(SMPL_model_female.posedirs))
+        # self.SMPL_weights_f = torch.Tensor(np.array(SMPL_model_female.weights))
 
         SMPL_path_male = '../smpl/models/basicmodel_m_lbs_10_207_0_v1.0.0.pkl'
         SMPL_model_male = load_model(SMPL_path_male)
@@ -260,6 +260,28 @@ class MeshDepthLib():
             self.parents = np.array(
                 [4294967295, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 9, 9, 12, 13, 14, 16, 17, 18, 19, 20, 21]).astype(
                 np.int32)
+
+            self.SMPL_posedirs_f = torch.Tensor(np.stack([SMPL_model_female.posedirs[vertices[0], :, :],
+                                                    SMPL_model_female.posedirs[vertices[1], :, :],
+                                                    SMPL_model_female.posedirs[vertices[2], :, :],
+                                                    SMPL_model_female.posedirs[vertices[3], :, :],
+                                                    SMPL_model_female.posedirs[vertices[4], :, :],
+                                                    SMPL_model_female.posedirs[vertices[5], :, :],
+                                                    SMPL_model_female.posedirs[vertices[6], :, :],
+                                                    SMPL_model_female.posedirs[vertices[7], :, :],
+                                                    SMPL_model_female.posedirs[vertices[8], :, :],
+                                                    SMPL_model_female.posedirs[vertices[9], :,
+                                                    :]]))
+            self.SMPL_weights_f = torch.Tensor(np.stack([SMPL_model_female.weights[vertices[0], :],
+                                                    SMPL_model_female.weights[vertices[1], :],
+                                                    SMPL_model_female.weights[vertices[2], :],
+                                                    SMPL_model_female.weights[vertices[3], :],
+                                                    SMPL_model_female.weights[vertices[4], :],
+                                                    SMPL_model_female.weights[vertices[5], :],
+                                                    SMPL_model_female.weights[vertices[6], :],
+                                                    SMPL_model_female.weights[vertices[7], :],
+                                                    SMPL_model_female.weights[vertices[8], :],
+                                                    SMPL_model_female.weights[vertices[9], :]]))
 
             self.batch_size = batch_size
             self.SMPL_shapedirs_repeat_f = self.SMPL_shapedirs_f.unsqueeze(0).repeat(self.batch_size, 1, 1, 1).permute(0, 2, 1,
