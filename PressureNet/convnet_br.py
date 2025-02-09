@@ -365,7 +365,7 @@ class CNN(nn.Module):
             y_pred_angles_rot_mat_pose_feature = (y_pred_angles_rot_mat[:, 1:, :, :] - torch.eye(3).type(self.dtype)).view(-1, 207)
 
             SMPL_posedirs = torch.bmm(y_true_gender_switch, self.SMPL_meshDepthLib.SMPL_posedirs_repeat[0:current_batch_size, :, :]) \
-                .view(current_batch_size, self.SMPL_meshDepthLib.SMPL_R * self.SMPL_meshDepthLib.SMPL_D, 207) \
+                .view(current_batch_size, 10 * self.SMPL_meshDepthLib.SMPL_D, 207) \
                 .permute(0, 2, 1)
 
             SMPL_pred_v_posed = torch.bmm(y_pred_angles_rot_mat_pose_feature.unsqueeze(1), SMPL_posedirs).view(-1, 10, self.SMPL_meshDepthLib.SMPL_D)
