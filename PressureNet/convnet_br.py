@@ -122,63 +122,63 @@ class CNN(nn.Module):
 
         if config['all_tanh_activ']:
             if config['double_network_size'] == False:
-                scores_cnn = self.CNN_packtanh(x_images)
+                predicted_labels = self.CNN_packtanh(x_images)
             else:
-                scores_cnn = self.CNN_packtanh_double(x_images)
+                predicted_labels = self.CNN_packtanh_double(x_images)
 
         else:
-            scores_cnn = self.CNN_pack1(x_images)
+            predicted_labels = self.CNN_pack1(x_images)
 
-        scores_size = scores_cnn.size()
+        scores_size = predicted_labels.size()
 
 
         # This combines the height, width, and filters into a single dimension
-        scores_cnn = scores_cnn.view(x_images.size(0),scores_size[1] *scores_size[2]*scores_size[3])
+        predicted_labels = predicted_labels.view(x_images.size(0),scores_size[1] *scores_size[2]*scores_size[3])
 
         # This output is N x 85: betas, root shift, angles
         if config['double_network_size'] == False:
-            y_pred_cnn = self.CNN_fc1(scores_cnn)
+            predicted_labels = self.CNN_fc1(predicted_labels)
         else:
-            y_pred_cnn = self.CNN_fc1_double(scores_cnn)
+            predicted_labels = self.CNN_fc1_double(predicted_labels)
 
 
         # weight the outputs, which are already centered around 0. First make them uniformly smaller than the direct output, which is too large.
         if config['adjust_ang_from_est'] == True:
-            y_pred_cnn = torch.mul(y_pred_cnn.clone(), 0.01)
+            predicted_labels = torch.mul(predicted_labels.clone(), 0.01)
         else:
-            y_pred_cnn = torch.mul(y_pred_cnn.clone(), 0.01)
+            predicted_labels = torch.mul(predicted_labels.clone(), 0.01)
 
 
         if config['lock_root'] == True:
-            y_pred_cnn[:, 10] = torch.add(y_pred_cnn[:, 10].clone(), 0.6).detach()
-            y_pred_cnn[:, 11] = torch.add(y_pred_cnn[:, 11].clone(), 1.2).detach()
-            y_pred_cnn[:, 12] = torch.add(y_pred_cnn[:, 12].clone(), 0.1).detach()
+            predicted_labels[:, 10] = torch.add(predicted_labels[:, 10].clone(), 0.6).detach()
+            predicted_labels[:, 11] = torch.add(predicted_labels[:, 11].clone(), 1.2).detach()
+            predicted_labels[:, 12] = torch.add(predicted_labels[:, 12].clone(), 0.1).detach()
         elif config['adjust_ang_from_est'] == True:
             pass
         else:
-            y_pred_cnn[:, 10] = torch.add(y_pred_cnn[:, 10].clone(), 0.6)
-            y_pred_cnn[:, 11] = torch.add(y_pred_cnn[:, 11].clone(), 1.2)
-            y_pred_cnn[:, 12] = torch.add(y_pred_cnn[:, 12].clone(), 0.1)
+            predicted_labels[:, 10] = torch.add(predicted_labels[:, 10].clone(), 0.6)
+            predicted_labels[:, 11] = torch.add(predicted_labels[:, 11].clone(), 1.2)
+            predicted_labels[:, 12] = torch.add(predicted_labels[:, 12].clone(), 0.1)
 
 
         if config['full_body_rot'] == True:
 
-            y_pred_cnn = y_pred_cnn.unsqueeze(0)
-            y_pred_cnn = y_pred_cnn.unsqueeze(0)
-            y_pred_cnn = F.pad(y_pred_cnn, (0, 3, 0, 0))
-            y_pred_cnn = y_pred_cnn.squeeze(0)
-            y_pred_cnn = y_pred_cnn.squeeze(0)
+            predicted_labels = predicted_labels.unsqueeze(0)
+            predicted_labels = predicted_labels.unsqueeze(0)
+            predicted_labels = F.pad(predicted_labels, (0, 3, 0, 0))
+            predicted_labels = predicted_labels.squeeze(0)
+            predicted_labels = predicted_labels.squeeze(0)
 
             if config['adjust_ang_from_est'] == True:
 
-                y_pred_cnn[:, 13:19] = y_pred_cnn[:, 13:19].clone() + OUTPUT_EST_DICT['root_atan2_est']
+                predicted_labels[:, 13:19] = predicted_labels[:, 13:19].clone() + OUTPUT_EST_DICT['root_atan2_est']
 
 
-            y_pred_cnn[:, 22:91] = y_pred_cnn[:, 19:88].clone()
+            predicted_labels[:, 22:91] = predicted_labels[:, 19:88].clone()
 
-            y_pred_cnn[:, 19] = torch.atan2(y_pred_cnn[:, 16].clone(), y_pred_cnn[:, 13].clone()) #pitch x, y
-            y_pred_cnn[:, 20] = torch.atan2(y_pred_cnn[:, 17].clone(), y_pred_cnn[:, 14].clone()) #roll x, y
-            y_pred_cnn[:, 21] = torch.atan2(y_pred_cnn[:, 18].clone(), y_pred_cnn[:, 15].clone()) #yaw x, y
+            predicted_labels[:, 19] = torch.atan2(predicted_labels[:, 16].clone(), predicted_labels[:, 13].clone()) #pitch x, y
+            predicted_labels[:, 20] = torch.atan2(predicted_labels[:, 17].clone(), predicted_labels[:, 14].clone()) #roll x, y
+            predicted_labels[:, 21] = torch.atan2(predicted_labels[:, 18].clone(), predicted_labels[:, 15].clone()) #yaw x, y
 
             OSA = 6 #output size adder
         else:
@@ -186,19 +186,19 @@ class CNN(nn.Module):
 
 
         if config['adjust_ang_from_est'] == True:
-            y_pred_cnn[:, 0:10] =  OUTPUT_EST_DICT['betas_est'] + y_pred_cnn[:, 0:10].clone()
-            y_pred_cnn[:, 10:13] = OUTPUT_EST_DICT['root_xyz_est'] + y_pred_cnn[:, 10:13].clone()
+            predicted_labels[:, 0:10] =  OUTPUT_EST_DICT['betas_est'] + predicted_labels[:, 0:10].clone()
+            predicted_labels[:, 10:13] = OUTPUT_EST_DICT['root_xyz_est'] + predicted_labels[:, 10:13].clone()
             if config['full_body_rot'] == True:
-                y_pred_cnn[:, 22:91] = y_pred_cnn[:, 22:91].clone() + OUTPUT_EST_DICT['angles_est'][:, 3:72]
+                predicted_labels[:, 22:91] = predicted_labels[:, 22:91].clone() + OUTPUT_EST_DICT['angles_est'][:, 3:72]
             else:
-                y_pred_cnn[:, 13:85] = y_pred_cnn[:, 13:85].clone() + OUTPUT_EST_DICT['angles_est']
+                predicted_labels[:, 13:85] = predicted_labels[:, 13:85].clone() + OUTPUT_EST_DICT['angles_est']
 
 
-        OUTPUT_DICT['y_pred_betas']     = y_pred_cnn[:, 0:10].clone().data
+        OUTPUT_DICT['y_pred_betas']     = predicted_labels[:, 0:10].clone().data
         if config['full_body_rot'] == True:
-            OUTPUT_DICT['y_pred_root_atan2'] = y_pred_cnn[:, 13:19].clone().data
-        OUTPUT_DICT['y_pred_angles']    = y_pred_cnn[:, 13+OSA:85+OSA].clone().data
-        OUTPUT_DICT['y_pred_root_xyz']  = y_pred_cnn[:, 10:13].clone().data
+            OUTPUT_DICT['y_pred_root_atan2'] = predicted_labels[:, 13:19].clone().data
+        OUTPUT_DICT['y_pred_angles']    = predicted_labels[:, 13+OSA:85+OSA].clone().data
+        OUTPUT_DICT['y_pred_root_xyz']  = predicted_labels[:, 10:13].clone().data
 
 
         if config['regress_angles'] == True:
@@ -208,57 +208,57 @@ class CNN(nn.Module):
 
 
         if config['clip_betas'] == True:
-            y_pred_cnn[:, 0:10] /= 3.
-            y_pred_cnn[:, 0:10] = y_pred_cnn[:, 0:10].tanh()
-            y_pred_cnn[:, 0:10] *= 3.
+            predicted_labels[:, 0:10] /= 3.
+            predicted_labels[:, 0:10] = predicted_labels[:, 0:10].tanh()
+            predicted_labels[:, 0:10] *= 3.
 
 
         test_ground_truth = False # can only use True when the dataset is entirely synthetic AND when we use anglesDC
 
         if test_ground_truth == False or is_training == False:
             # make sure the estimated betas are reasonable.
-            y_pred_betas    = y_pred_cnn[:, 0:10].clone()#.detach() #make sure to detach so the gradient flow of joints doesn't corrupt the betas
-            y_pred_root_xyz = y_pred_cnn[:, 10:13].clone()
+            y_pred_betas    = predicted_labels[:, 0:10].clone()#.detach() #make sure to detach so the gradient flow of joints doesn't corrupt the betas
+            y_pred_root_xyz = predicted_labels[:, 10:13].clone()
 
             # normalize for tan activation function
-            y_pred_cnn[:, 13+OSA:85+OSA] -= torch.mean(self.SMPL_meshDepthLib.bounds[0:72, 0:2], dim=1)
-            y_pred_cnn[:, 13+OSA:85+OSA] *= (2. / torch.abs(self.SMPL_meshDepthLib.bounds[0:72, 0] - self.SMPL_meshDepthLib.bounds[0:72, 1]))
-            y_pred_cnn[:, 13+OSA:85+OSA] = y_pred_cnn[:, 13+OSA:85+OSA].tanh()
-            y_pred_cnn[:, 13+OSA:85+OSA] /= (2. / torch.abs(self.SMPL_meshDepthLib.bounds[0:72, 0] - self.SMPL_meshDepthLib.bounds[0:72, 1]))
-            y_pred_cnn[:, 13+OSA:85+OSA] += torch.mean(self.SMPL_meshDepthLib.bounds[0:72, 0:2], dim=1)
+            predicted_labels[:, 13+OSA:85+OSA] -= torch.mean(self.SMPL_meshDepthLib.bounds[0:72, 0:2], dim=1)
+            predicted_labels[:, 13+OSA:85+OSA] *= (2. / torch.abs(self.SMPL_meshDepthLib.bounds[0:72, 0] - self.SMPL_meshDepthLib.bounds[0:72, 1]))
+            predicted_labels[:, 13+OSA:85+OSA] = predicted_labels[:, 13+OSA:85+OSA].tanh()
+            predicted_labels[:, 13+OSA:85+OSA] /= (2. / torch.abs(self.SMPL_meshDepthLib.bounds[0:72, 0] - self.SMPL_meshDepthLib.bounds[0:72, 1]))
+            predicted_labels[:, 13+OSA:85+OSA] += torch.mean(self.SMPL_meshDepthLib.bounds[0:72, 0:2], dim=1)
 
             config['align_procr'] = False
 
             if config['align_procr'] == True:
                 print("aligning procrustes")
                 y_pred_root_xyz = y_true_root_xyz
-                y_pred_cnn[:, 13+OSA:16+OSA] = y_true_joint_angles[:, 0:3].clone()
+                predicted_labels[:, 13+OSA:16+OSA] = y_true_joint_angles[:, 0:3].clone()
 
             if self.loss_type == 'anglesDC':
-                y_pred_angles_rot_mat = KinematicsLib().batch_rodrigues(y_pred_cnn[:, 13+OSA:85+OSA].view(-1, 24, 3).clone()).view(-1, 24, 3, 3)
+                y_pred_angles_rot_mat = KinematicsLib().batch_rodrigues(predicted_labels[:, 13+OSA:85+OSA].view(-1, 24, 3).clone()).view(-1, 24, 3, 3)
 
             elif self.loss_type == 'anglesEU':
-                y_pred_angles_rot_mat = KinematicsLib().batch_euler_to_R(y_pred_cnn[:, 13+OSA:85+OSA].view(-1, 24, 3).clone(), self.SMPL_meshDepthLib.zeros_cartesian, self.SMPL_meshDepthLib.ones_cartesian).view(-1, 24, 3, 3)
+                y_pred_angles_rot_mat = KinematicsLib().batch_euler_to_R(predicted_labels[:, 13+OSA:85+OSA].view(-1, 24, 3).clone(), self.SMPL_meshDepthLib.zeros_cartesian, self.SMPL_meshDepthLib.ones_cartesian).view(-1, 24, 3, 3)
 
 
         else:
             y_pred_betas = y_true_body_shape
-            y_pred_cnn[:, 0:10] = y_true_body_shape.clone()
-            y_pred_cnn[:, 13+OSA:85+OSA] = y_true_joint_angles.clone()
+            predicted_labels[:, 0:10] = y_true_body_shape.clone()
+            predicted_labels[:, 13+OSA:85+OSA] = y_true_joint_angles.clone()
             y_pred_root_xyz = y_true_root_xyz
 
             if self.loss_type == 'anglesDC':
-                y_pred_angles_rot_mat = KinematicsLib().batch_rodrigues(y_pred_cnn[:, 13+OSA:85+OSA].view(-1, 24, 3).clone()).view(-1, 24, 3, 3)
+                y_pred_angles_rot_mat = KinematicsLib().batch_rodrigues(predicted_labels[:, 13+OSA:85+OSA].view(-1, 24, 3).clone()).view(-1, 24, 3, 3)
 
 
-        OUTPUT_DICT['y_pred_betas_post_clip']       = y_pred_cnn[:, 0:10].clone().data
+        OUTPUT_DICT['y_pred_betas_post_clip']       = predicted_labels[:, 0:10].clone().data
 
         if self.loss_type == 'anglesEU':
-            OUTPUT_DICT['y_pred_angles_post_clip']  = KinematicsLib().batch_dir_cos_angles_from_euler_angles(y_pred_cnn[:, 13+OSA:85+OSA].view(-1, 24, 3).clone(), self.SMPL_meshDepthLib.zeros_cartesian, self.SMPL_meshDepthLib.ones_cartesian)
+            OUTPUT_DICT['y_pred_angles_post_clip']  = KinematicsLib().batch_dir_cos_angles_from_euler_angles(predicted_labels[:, 13+OSA:85+OSA].view(-1, 24, 3).clone(), self.SMPL_meshDepthLib.zeros_cartesian, self.SMPL_meshDepthLib.ones_cartesian)
         elif self.loss_type == 'anglesDC':
-            OUTPUT_DICT['y_pred_angles_post_clip']  = y_pred_cnn[:, 13+OSA:85+OSA].view(-1, 24, 3).clone()
+            OUTPUT_DICT['y_pred_angles_post_clip']  = predicted_labels[:, 13+OSA:85+OSA].view(-1, 24, 3).clone()
 
-        OUTPUT_DICT['y_pred_root_xyz_post_clip']    = y_pred_cnn[:, 10:13].clone().data
+        OUTPUT_DICT['y_pred_root_xyz_post_clip']    = predicted_labels[:, 10:13].clone().data
 
 
         y_true_gender_switch = y_true_gender_switch.unsqueeze(1)
@@ -413,74 +413,74 @@ class CNN(nn.Module):
 
         OUTPUT_DICT['y_pred_markers_xyz'] = y_pred_markers_xyz.data*1000. #after it comes out of the forward kinematics
 
-        y_pred_cnn = y_pred_cnn.unsqueeze(0)
-        y_pred_cnn = y_pred_cnn.unsqueeze(0)
-        y_pred_cnn = F.pad(y_pred_cnn, (0, 100 + add_idx, 0, 0))
-        y_pred_cnn = y_pred_cnn.squeeze(0)
-        y_pred_cnn = y_pred_cnn.squeeze(0)
+        predicted_labels = predicted_labels.unsqueeze(0)
+        predicted_labels = predicted_labels.unsqueeze(0)
+        predicted_labels = F.pad(predicted_labels, (0, 100 + add_idx, 0, 0))
+        predicted_labels = predicted_labels.squeeze(0)
+        predicted_labels = predicted_labels.squeeze(0)
 
 
         # tweak this to change the lengths vector
-        y_pred_cnn[:, 34+add_idx+OSA:106+add_idx+OSA] = torch.mul(y_pred_markers_xyz[:, 0:72], 1.)
+        predicted_labels[:, 34+add_idx+OSA:106+add_idx+OSA] = torch.mul(y_pred_markers_xyz[:, 0:72], 1.)
 
-        y_pred_cnn[:, 0:10] = torch.mul(y_true_synth_real_switch.unsqueeze(1), torch.sub(y_pred_cnn[:, 0:10], y_true_body_shape))#*.2
+        predicted_labels[:, 0:10] = torch.mul(y_true_synth_real_switch.unsqueeze(1), torch.sub(predicted_labels[:, 0:10], y_true_body_shape))#*.2
 
         if config['full_body_rot'] == True:
-            y_pred_cnn[:, 10:16] = y_pred_cnn[:, 13:19].clone()
+            predicted_labels[:, 10:16] = predicted_labels[:, 13:19].clone()
 
             if self.loss_type == 'anglesEU':
-                y_pred_cnn[:, 10:13] = y_pred_cnn[:, 10:13].clone() - torch.cos(KinematicsLib().batch_euler_angles_from_dir_cos_angles(y_true_joint_angles[:, 0:3].view(-1, 1, 3).clone()).contiguous().view(-1, 3))
-                y_pred_cnn[:, 13:16] = y_pred_cnn[:, 13:16].clone() - torch.sin(KinematicsLib().batch_euler_angles_from_dir_cos_angles(y_true_joint_angles[:, 0:3].view(-1, 1, 3).clone()).contiguous().view(-1, 3))
+                predicted_labels[:, 10:13] = predicted_labels[:, 10:13].clone() - torch.cos(KinematicsLib().batch_euler_angles_from_dir_cos_angles(y_true_joint_angles[:, 0:3].view(-1, 1, 3).clone()).contiguous().view(-1, 3))
+                predicted_labels[:, 13:16] = predicted_labels[:, 13:16].clone() - torch.sin(KinematicsLib().batch_euler_angles_from_dir_cos_angles(y_true_joint_angles[:, 0:3].view(-1, 1, 3).clone()).contiguous().view(-1, 3))
             elif self.loss_type == 'anglesDC':
-                y_pred_cnn[:, 10:13] = y_pred_cnn[:, 10:13].clone() - torch.cos(y_true_joint_angles[:, 0:3].clone())
-                y_pred_cnn[:, 13:16] = y_pred_cnn[:, 13:16].clone() - torch.sin(y_true_joint_angles[:, 0:3].clone())
+                predicted_labels[:, 10:13] = predicted_labels[:, 10:13].clone() - torch.cos(y_true_joint_angles[:, 0:3].clone())
+                predicted_labels[:, 13:16] = predicted_labels[:, 13:16].clone() - torch.sin(y_true_joint_angles[:, 0:3].clone())
 
 
         # compare the output angles to the target values
         if config['regress_angles'] == True:
             if self.loss_type == 'anglesDC':
-                y_pred_cnn[:, 34+OSA:106+OSA] = y_true_joint_angles.clone().view(-1, 72) - y_pred_cnn[:, 13+OSA:85+OSA]
-                y_pred_cnn[:, 34+OSA:106+OSA] = torch.mul(y_true_synth_real_switch.unsqueeze(1), torch.sub(y_pred_cnn[:, 34+OSA:106+OSA], y_true_joint_angles.clone().view(-1, 72)))
+                predicted_labels[:, 34+OSA:106+OSA] = y_true_joint_angles.clone().view(-1, 72) - predicted_labels[:, 13+OSA:85+OSA]
+                predicted_labels[:, 34+OSA:106+OSA] = torch.mul(y_true_synth_real_switch.unsqueeze(1), torch.sub(predicted_labels[:, 34+OSA:106+OSA], y_true_joint_angles.clone().view(-1, 72)))
 
             elif self.loss_type == 'anglesEU':
-                y_pred_cnn[:, 34+OSA:106+OSA] = KinematicsLib().batch_euler_angles_from_dir_cos_angles(y_true_joint_angles.view(-1, 24, 3).clone()).contiguous().view(-1, 72) - y_pred_cnn[:, 13+OSA:85+OSA]
+                predicted_labels[:, 34+OSA:106+OSA] = KinematicsLib().batch_euler_angles_from_dir_cos_angles(y_true_joint_angles.view(-1, 24, 3).clone()).contiguous().view(-1, 72) - predicted_labels[:, 13+OSA:85+OSA]
 
-            y_pred_cnn[:, 34+OSA:106+OSA] = torch.mul(y_true_synth_real_switch.unsqueeze(1), y_pred_cnn[:, 34+OSA:106+OSA].clone())
+            predicted_labels[:, 34+OSA:106+OSA] = torch.mul(y_true_synth_real_switch.unsqueeze(1), predicted_labels[:, 34+OSA:106+OSA].clone())
 
 
         # compare the output joints to the target values
-        y_pred_cnn[:, 34+add_idx+OSA:106+add_idx+OSA] = y_true_markers_xyz[:, 0:72]/1000 - y_pred_cnn[:, 34+add_idx+OSA:106+add_idx+OSA]
-        y_pred_cnn[:, 106+add_idx+OSA:178+add_idx+OSA] = ((y_pred_cnn[:, 34+add_idx+OSA:106+add_idx+OSA].clone())+0.0000001).pow(2)
+        predicted_labels[:, 34+add_idx+OSA:106+add_idx+OSA] = y_true_markers_xyz[:, 0:72]/1000 - predicted_labels[:, 34+add_idx+OSA:106+add_idx+OSA]
+        predicted_labels[:, 106+add_idx+OSA:178+add_idx+OSA] = ((predicted_labels[:, 34+add_idx+OSA:106+add_idx+OSA].clone())+0.0000001).pow(2)
 
 
         for joint_num in range(24):
             if joint_num in [0, 1, 2, 6, 9, 10, 11, 12, 13, 14, 16, 17, 22, 23]: #torso is 3 but forget training it
-                y_pred_cnn[:, 10+joint_num+OSA] = torch.mul(y_true_synth_real_switch,
-                                                    (y_pred_cnn[:, 106+add_idx+joint_num*3+OSA] +
-                                                     y_pred_cnn[:, 107+add_idx+joint_num*3+OSA] +
-                                                     y_pred_cnn[:, 108+add_idx+joint_num*3+OSA]).sqrt())
+                predicted_labels[:, 10+joint_num+OSA] = torch.mul(y_true_synth_real_switch,
+                                                    (predicted_labels[:, 106+add_idx+joint_num*3+OSA] +
+                                                     predicted_labels[:, 107+add_idx+joint_num*3+OSA] +
+                                                     predicted_labels[:, 108+add_idx+joint_num*3+OSA]).sqrt())
 
             else:
-                y_pred_cnn[:, 10+joint_num+OSA] = (y_pred_cnn[:, 106+add_idx+joint_num*3+OSA] +
-                                           y_pred_cnn[:, 107+add_idx+joint_num*3+OSA] +
-                                           y_pred_cnn[:, 108+add_idx+joint_num*3+OSA]).sqrt()
+                predicted_labels[:, 10+joint_num+OSA] = (predicted_labels[:, 106+add_idx+joint_num*3+OSA] +
+                                           predicted_labels[:, 107+add_idx+joint_num*3+OSA] +
+                                           predicted_labels[:, 108+add_idx+joint_num*3+OSA]).sqrt()
 
 
-        y_pred_cnn = y_pred_cnn.unsqueeze(0)
-        y_pred_cnn = y_pred_cnn.unsqueeze(0)
-        y_pred_cnn = F.pad(y_pred_cnn, (0, -151, 0, 0))
-        y_pred_cnn = y_pred_cnn.squeeze(0)
-        y_pred_cnn = y_pred_cnn.squeeze(0)
+        predicted_labels = predicted_labels.unsqueeze(0)
+        predicted_labels = predicted_labels.unsqueeze(0)
+        predicted_labels = F.pad(predicted_labels, (0, -151, 0, 0))
+        predicted_labels = predicted_labels.squeeze(0)
+        predicted_labels = predicted_labels.squeeze(0)
 
 
-        y_pred_cnn[:, 0:10] = torch.mul(y_pred_cnn[:, 0:10].clone(), (1/1.728158146914805))#1.7312621950698526)) #weight the betas by std
+        predicted_labels[:, 0:10] = torch.mul(predicted_labels[:, 0:10].clone(), (1/1.728158146914805))#1.7312621950698526)) #weight the betas by std
 
         if config['full_body_rot'] == True:
-            y_pred_cnn[:, 10:16] = torch.mul(y_pred_cnn[:, 10:16].clone(), (1/0.3684988513298487))#0.2130542427733348)*np.pi) #weight the body rotation by the std
+            predicted_labels[:, 10:16] = torch.mul(predicted_labels[:, 10:16].clone(), (1/0.3684988513298487))#0.2130542427733348)*np.pi) #weight the body rotation by the std
 
-        y_pred_cnn[:, 10+OSA:34+OSA] = torch.mul(y_pred_cnn[:, 10+OSA:34+OSA].clone(), (1/0.1752780723422608))#0.1282715100608753)) #weight the 24 joints by std
+        predicted_labels[:, 10+OSA:34+OSA] = torch.mul(predicted_labels[:, 10+OSA:34+OSA].clone(), (1/0.1752780723422608))#0.1282715100608753)) #weight the 24 joints by std
 
-        if config['regress_angles'] == True: y_pred_cnn[:, 34+OSA:106+OSA] = torch.mul(y_pred_cnn[:, 34+OSA:106+OSA].clone(), (1/0.29641429463719227))#0.2130542427733348)) #weight the angles by how many there are
+        if config['regress_angles'] == True: predicted_labels[:, 34+OSA:106+OSA] = torch.mul(predicted_labels[:, 34+OSA:106+OSA].clone(), (1/0.29641429463719227))#0.2130542427733348)) #weight the angles by how many there are
 
 
-        return y_pred_cnn, OUTPUT_DICT
+        return predicted_labels, OUTPUT_DICT

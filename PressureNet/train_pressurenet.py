@@ -313,30 +313,30 @@ class PhysicalTrainer():
 				inputs, targets = inputs.to(device), targets.to(device)
 
 				self.optimizer.zero_grad()
-				scores, INPUT_DICT, OUTPUT_DICT = \
+				predicted_labels, INPUT_DICT, OUTPUT_DICT = \
 					UnpackBatchLib().unpack_batch(train_batch, is_training=True, model = self.model, config=self.config)
 
 				self.config['first_pass'] = False
 
-				scores_zeros = torch.zeros((inputs.shape[0], scores.size()[1]), device=device, requires_grad=True)
+				scores_zeros = torch.zeros((inputs.shape[0], predicted_labels.size()[1]), device=device, requires_grad=True)
 
 				if self.config['full_body_rot'] == True:
 					OSA = 6
 					if self.cmd_args.loss_root == True:
-						loss_bodyrot = self.criterion(scores[:, 10:16], scores_zeros[:, 10:16])
+						loss_bodyrot = self.criterion(predicted_labels[:, 10:16], scores_zeros[:, 10:16])
 					else:
-						loss_bodyrot = self.criterion(scores[:, 10:16], scores_zeros[:, 10:16]) * 0.0
+						loss_bodyrot = self.criterion(predicted_labels[:, 10:16], scores_zeros[:, 10:16]) * 0.0
 				else: OSA = 0
 
-				loss_eucl = self.criterion(scores[:, 10+OSA:34+OSA], scores_zeros[:, 10+OSA:34+OSA])
+				loss_eucl = self.criterion(predicted_labels[:, 10+OSA:34+OSA], scores_zeros[:, 10+OSA:34+OSA])
 				if self.cmd_args.half_shape_wt == True:
-					loss_betas = self.criterion(scores[:, 0:10], scores_zeros[:, 0:10]) * 0.5
+					loss_betas = self.criterion(predicted_labels[:, 0:10], scores_zeros[:, 0:10]) * 0.5
 				else:
-					loss_betas = self.criterion(scores[:, 0:10], scores_zeros[:, 0:10])
+					loss_betas = self.criterion(predicted_labels[:, 0:10], scores_zeros[:, 0:10])
 
 
 				if self.config['regress_angles'] == True:
-					loss_angs = self.criterion2(scores[:, 34+OSA:106+OSA], scores_zeros[:, 34+OSA:106+OSA])
+					loss_angs = self.criterion2(predicted_labels[:, 34+OSA:106+OSA], scores_zeros[:, 34+OSA:106+OSA])
 					loss = (loss_betas + loss_eucl + loss_bodyrot + loss_angs)
 				else:
 					loss = (loss_betas + loss_eucl + loss_bodyrot)

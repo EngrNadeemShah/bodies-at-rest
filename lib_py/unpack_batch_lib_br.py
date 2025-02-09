@@ -218,7 +218,7 @@ class UnpackBatchLib():
                 'contact_map': None,
             }
 
-        scores, OUTPUT_DICT = model.forward_kinematic_angles(x_images               = batch[0],
+        predicted_labels, OUTPUT_DICT = model.forward_kinematic_angles(x_images               = batch[0],
                                                              y_true_markers_xyz     = batch[1][:, :72],
                                                              y_true_body_shape      = batch[1][:, 72:82],
                                                              y_true_joint_angles    = batch[1][:, 82:154],
@@ -234,5 +234,5 @@ class UnpackBatchLib():
         INPUT_DICT['x_images'] = batch[0]
         INPUT_DICT['y_true_markers_xyz'] = batch[1][:, :72]
 
-        return scores, INPUT_DICT, OUTPUT_DICT
+        return predicted_labels, INPUT_DICT, OUTPUT_DICT
 
