@@ -22,67 +22,25 @@ def retrieve_data_file_paths(folder, verbose=False):
 				print(f'{file_index+1:02d} ({total_files:02d}): {file}') if verbose else None
 	return file_paths
 
+def plot_input_channels(inputs_batch, batch_idx):
+	num_channels = inputs_batch.shape[1]
+	num_cols = min(num_channels, 5)
+	num_rows = (num_channels + num_cols - 1) // num_cols
+	fig, axes = plt.subplots(num_rows, num_cols, figsize=(19.2, 10.8))
+	axes = axes.flatten() if num_rows > 1 else axes
 
-# # Define the neural network model
-# class PressureNet(nn.Module):
-# 	def __init__(self, in_channels=1, num_classes=10):
-# 		super(PressureNet, self).__init__()
+	for i in range(num_channels):
+		axes[i].imshow(inputs_batch[0, i].cpu().numpy())
+		axes[i].set_title(f'Input Channel {i}\n{inputs_batch[0, i].shape} | {inputs_batch[0, i].dtype}\nmin: {inputs_batch[0, i].min():.2f} | max: {inputs_batch[0, i].max():.2f}\nmean: {inputs_batch[0, i].mean():.2f} | sum: {inputs_batch[0, i].sum():.2f}', fontsize=8, pad=10)
+		axes[i].axis('off')
 
-# 		self.features = nn.Sequential(
-# 			nn.Conv2d(in_channels, 192, kernel_size=7, stride=2, padding=3),
-# 			nn.ReLU(inplace=True),
-# 			nn.Dropout(p=0.1),
-# 			nn.MaxPool2d(3, stride=2),
-# 			nn.Conv2d(192, 192, kernel_size=3, stride=1, padding=0),
-# 			nn.ReLU(inplace=True),
-# 			nn.Dropout(p=0.1),
-# 			nn.Conv2d(192, 384, kernel_size=3, stride=1, padding=0),
-# 			nn.ReLU(inplace=True),
-# 			nn.Dropout(p=0.1),
-# 			nn.Conv2d(384, 384, kernel_size=3, stride=1, padding=0),
-# 			nn.ReLU(inplace=True),
-# 			nn.Dropout(p=0.1),
-# 		)
-# 		self.classifier = nn.Sequential(
-# 			# nn.Linear(67200, 128),
-# 			# nn.ReLU(inplace=True),
-# 			# nn.Linear(128, num_classes)
-# 			nn.Linear(67200, num_classes)
-# 		)
+	for j in range(i + 1, len(axes)):
+		axes[j].axis('off')
 
-# 	def forward(self, x):
-# 		x = self.features(x)
-# 		x = torch.flatten(x, 1)
-# 		x = self.classifier(x)
-# 		return x
+	fig.suptitle(f'Batch Index: {batch_idx + 1}', fontsize=16)
+	plt.tight_layout()
+	plt.show()
 
-# # Training function
-# def train(model, device, train_loader, optimizer, criterion, epoch):
-# 	model.train()
-# 	for batch_idx, (data, target) in enumerate(train_loader):
-# 		data, target = data.to(device), target.to(device)
-# 		optimizer.zero_grad()
-# 		output = model(data)
-# 		loss = criterion(output, target)
-# 		loss.backward()
-# 		optimizer.step()
-# 		if batch_idx % 10 == 0:
-# 			print(f'Train Epoch: {epoch} [{batch_idx * len(data)}/{len(train_loader.dataset)}] Loss: {loss.item():.6f}')
-
-# # Testing function
-# def test(model, device, test_loader, criterion):
-# 	model.eval()
-# 	test_loss = 0
-# 	correct = 0
-# 	with torch.no_grad():
-# 		for data, target in test_loader:
-# 			data, target = data.to(device), target.to(device)
-# 			output = model(data)
-# 			test_loss += criterion(output, target).item()
-# 			pred = output.argmax(dim=1, keepdim=True)
-# 			correct += pred.eq(target.view_as(pred)).sum().item()
-# 	test_loss /= len(test_loader.dataset)
-# 	print(f'\nTest set: Average loss: {test_loss:.4f}, Accuracy: {correct}/{len(test_loader.dataset)} ({100. * correct / len(test_loader.dataset):.0f}%)\n')
 
 # Main function
 def main():
@@ -116,9 +74,12 @@ def main():
 	device = torch.device("cuda" if is_cuda_available else "cpu")
 
 	print(f"Device (CUDA/CPU):  {device}")
-	print(f"GPU Name:           {torch.cuda.get_device_name(0)}")
-	print(f"Device Count:       {torch.cuda.device_count()}")
-	print(f"Current Device:     {torch.cuda.current_device()}")
+	if is_cuda_available:
+		print(f"GPU Name:           {torch.cuda.get_device_name(0)}")
+		print(f"Device Count:       {torch.cuda.device_count()}")
+		print(f"Current Device:     {torch.cuda.current_device()}")
+	else:
+		print("CUDA is not available, using CPU.")
 
 	# Set the np.array print options
 	np.set_printoptions(threshold=sys.maxsize, precision=4, suppress=True)
@@ -142,7 +103,7 @@ def main():
 		config['normalize_std_dev'] = np.ones(10, dtype=np.float32)
 	else:
 		config['normalize_std_dev'] = np.array([
-    		1 / 41.8068,	# contact
+			1 / 41.8068,	# contact
 			1 / 16.6955,	# pos est depth
 			1 / 45.0851,	# neg est depth
 			1 / 43.5580,	# cm est
@@ -183,26 +144,7 @@ def main():
 		print(f"Train Batch Output Shape:    {labels_batch.shape}")
 		print()
 
-		# Plot the final input channels
-		num_channels = inputs_batch.shape[1]
-		num_cols = min(num_channels, 5)
-		num_rows = (num_channels + num_cols - 1) // num_cols
-		fig, axes = plt.subplots(num_rows, num_cols, figsize=(19.2, 10.8))
-		axes = axes.flatten() if num_rows > 1 else axes
-
-		for i in range(num_channels):
-			axes[i].imshow(inputs_batch[0, i].cpu().numpy())
-			axes[i].set_title(f'Input Channel {i}\n{inputs_batch[0, i].shape} | {inputs_batch[0, i].dtype}\nmin: {inputs_batch[0, i].min():.2f} | max: {inputs_batch[0, i].max():.2f}\nmean: {inputs_batch[0, i].mean():.2f} | sum: {inputs_batch[0, i].sum():.2f}', fontsize=8, pad=10)
-			axes[i].axis('off')
-
-		for j in range(i + 1, len(axes)):
-			axes[j].axis('off')
-
-		plt.tight_layout()
-		plt.show()
-		print()
-
-
+		plot_input_channels(inputs_batch, train_batch_idx)
 
 if __name__ == '__main__':
 	main()

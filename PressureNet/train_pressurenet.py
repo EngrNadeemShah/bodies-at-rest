@@ -49,10 +49,11 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Set the number of threads to be used by PyTorch (useful for debugging)
 # torch.set_num_threads(1)
 
-print(f"GPU Name:           {torch.cuda.get_device_name(0)}")
 print(f"Device (CUDA/CPU):  {device}")
-print(f"Device Count:       {torch.cuda.device_count()}")
-print(f"Current Device:     {torch.cuda.current_device()}")
+if torch.cuda.is_available():
+	print(f"GPU Name:           {torch.cuda.get_device_name(0)}")
+	print(f"Device Count:       {torch.cuda.device_count()}")
+	print(f"Current Device:     {torch.cuda.current_device()}")
 
 
 def load_pickle(filename):
@@ -73,7 +74,7 @@ class PhysicalTrainer():
 		self.cmd_args = cmd_args
 		self.config = {
 			# Training Parameters (6)
-			'batch_size':            2,		# 128 changed by Nadeem to 512
+			'batch_size':            16,		# 128 changed by Nadeem to 512
 			'num_epochs':            1,		# 100 changed by Nadeem to 1
 			'shuffle':               True,
 			'loss_root':             cmd_args.loss_root,
