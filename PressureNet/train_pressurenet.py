@@ -309,12 +309,12 @@ class PhysicalTrainer():
 				print(f"Train Batch Output Shape:    {train_batch[1].shape}")
 				print()
 
-				inputs, targets = train_batch
-				inputs, targets = inputs.to(device), targets.to(device)
+				inputs, labels = train_batch
+				inputs, labels = inputs.to(device), labels.to(device)
 
 				self.optimizer.zero_grad()
 				predicted_labels, INPUT_DICT, OUTPUT_DICT = \
-					UnpackBatchLib().unpack_batch(train_batch, is_training=True, model = self.model, config=self.config)
+					UnpackBatchLib().unpack_batch(inputs, labels, is_training=True, model = self.model, config=self.config)
 
 				self.config['first_pass'] = False
 
