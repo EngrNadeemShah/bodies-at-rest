@@ -5,46 +5,12 @@ from torch.utils.data import DataLoader
 import torch.nn.functional as F
 import numpy as np
 import argparse
-import os
 import sys
 from datasets import PressurePoseDataset
-import matplotlib.pyplot as plt
 from models import PressureNet
 from smpl_class import SMPLPreloader
 import smplx
-from utils import convert_axis_angle_to_rotation_matrix, apply_global_rigid_transformations, print_error_summary
-
-def retrieve_data_file_paths(folder, verbose=False):
-	total_files = 0
-	file_paths = []
-	for root, dirs, files in os.walk(folder):
-		print('Root:', root) if verbose else None
-		for file_index, file in enumerate(files):
-			if file.endswith('.p'):
-				file_path = os.path.join(root, file)
-				file_paths.append(file_path)
-				total_files += 1
-				print(f'{file_index+1:02d} ({total_files:02d}): {file}') if verbose else None
-	return file_paths
-
-def plot_input_channels(inputs_batch, batch_idx):
-	num_channels = inputs_batch.shape[1]
-	num_cols = min(num_channels, 5)
-	num_rows = (num_channels + num_cols - 1) // num_cols
-	fig, axes = plt.subplots(num_rows, num_cols, figsize=(19.2, 10.8))
-	axes = axes.flatten() if num_rows > 1 else axes
-
-	for i in range(num_channels):
-		axes[i].imshow(inputs_batch[0, i].cpu().numpy())
-		axes[i].set_title(f'Input Channel {i}\n{inputs_batch[0, i].shape} | {inputs_batch[0, i].dtype}\nmin: {inputs_batch[0, i].min():.2f} | max: {inputs_batch[0, i].max():.2f}\nmean: {inputs_batch[0, i].mean():.2f} | sum: {inputs_batch[0, i].sum():.2f}', fontsize=8, pad=10)
-		axes[i].axis('off')
-
-	for j in range(i + 1, len(axes)):
-		axes[j].axis('off')
-
-	fig.suptitle(f'Batch Index: {batch_idx + 1}', fontsize=16)
-	plt.tight_layout()
-	plt.show()
+from utils import convert_axis_angle_to_rotation_matrix, apply_global_rigid_transformations, print_error_summary, retrieve_data_file_paths, plot_input_channels
 
 def train(model, train_loader, optimizer, criterion, device, config, epoch):
 	# Define the parent array with -1 to indicate a non-existent parent (replaced 4294967295)
@@ -328,7 +294,6 @@ def train(model, train_loader, optimizer, criterion, device, config, epoch):
 			# # 					examples_this_epoch,
 			# # 					len(train_loader.dataset),
 			# # 					epoch_progress]
-############################################################################################################################################################################
 
 
 def main():
