@@ -341,20 +341,6 @@ def main():
 	# Set the np.array print options
 	np.set_printoptions(threshold=sys.maxsize, precision=4, suppress=True)
 
-
-	# Define the path to the original train and test data (.pickle files)
-	if config['mod'] == 1:
-		train_files_dir = 'synthetic_data/original/train'
-		valid_files_dir = 'synthetic_data/original/test'
-	elif config['mod'] == 2:
-		train_files_dir = 'synthetic_data/by_mod1/a/train'
-		valid_files_dir = 'synthetic_data/by_mod1/a/test'
-
-	# Get the paths to the train and test data files
-	train_file_paths = retrieve_data_file_paths(train_files_dir)
-	valid_file_paths = retrieve_data_file_paths(valid_files_dir)
-
-
 	# Normalization standard deviations for each channel
 	if config['normalize_per_image']:
 		config['normalize_std_dev'] = np.ones(10, dtype=np.float32)
@@ -373,6 +359,20 @@ def main():
 		])
 
 
+	# 1. Data Preparation
+	# Define the path to the original train and test data (.pickle files)
+	if config['mod'] == 1:
+		train_files_dir = 'synthetic_data/original/train'
+		valid_files_dir = 'synthetic_data/original/test'
+	elif config['mod'] == 2:
+		train_files_dir = 'synthetic_data/by_mod1/a/train'
+		valid_files_dir = 'synthetic_data/by_mod1/a/test'
+
+	# Get the paths to the train and test data files
+	train_file_paths = retrieve_data_file_paths(train_files_dir)
+	valid_file_paths = retrieve_data_file_paths(valid_files_dir)
+
+	# Create the train and test datasets and data loaders
 	train_dataset = PressurePoseDataset(file_paths=train_file_paths, config=config, is_train=True)
 	valid_dataset = PressurePoseDataset(file_paths=valid_file_paths, config=config, is_train=False)
 	train_loader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=False)
@@ -385,24 +385,37 @@ def main():
 	print(f"Batch Size:				{config['batch_size']}")
 	print(f"Number of Epochs:			{config['num_epochs']}")
 
-	# Define the model, optimizer, and loss function
+
+	# 2. Define the model, optimizer, and loss functions
 	model = PressureNet(in_channels=train_dataset[0][0].shape[0], num_classes=88, use_relu=config['use_relu']).to(device)
 	optimizer = optim.Adam(model.parameters(), lr=config['learning_rate'], weight_decay=0.0005)
 	criterion1 = nn.L1Loss()
 	criterion2 = nn.MSELoss()
 
 
-	# Train and validate the model
+	# 3. Training Loop
+	best_valid_loss = float('inf')
+
 	for epoch in range(1, config['num_epochs'] + 1):
 		print(f"Epoch [{epoch}/{config['num_epochs']}] started.")
+
 		train(model, train_loader, optimizer, criterion1, device, config, epoch)
+		# valid_loss, valid_accuracy = validate(model, valid_loader, criterion2, device, config)
+		# print(f"Epoch [{epoch}], Valid Loss: {valid_loss:.4f}, Valid Accuracy: {valid_accuracy:.2f}%")
 
-		# avg_valid_loss, valid_accuracy = validate(model, valid_loader, criterion2, device, config)
-		# print(f"Epoch [{epoch}], Valid Loss: {avg_valid_loss:.4f}, Valid Accuracy: {valid_accuracy:.2f}%")
+		# # Save best model
+		# if valid_loss < best_valid_loss:
+		# 	best_valid_loss = valid_loss
+		# 	torch.save(model.state_dict(), "best_model.pth")
+		# 	print("Best model saved!")
+
 		print(f"Epoch [{epoch}/{config['num_epochs']}] completed.")
+		# if config['verbose']:
+		# 	plot_input_channels(inputs_batch, train_batch_idx)
 
-		# 	if config['verbose']:
-		# 		plot_input_channels(inputs_batch, train_batch_idx)
+	# # 7. Load Best Model for Final Testing
+	# best_model = PressureNet(in_channels=train_dataset[0][0].shape[0], num_classes=88, use_relu=config['use_relu']).to(device)
+	# best_model.load_state_dict(torch.load("best_model.pth"))
 
 if __name__ == '__main__':
 	main()
