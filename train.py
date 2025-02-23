@@ -10,208 +10,34 @@ from datasets import PressurePoseDataset
 from models import PressureNet
 from smpl_class import SMPLPreloader
 import smplx
-import time
+from time import time
+from tqdm import tqdm
 import pickle as pkl
 from utils import print_error_summary, retrieve_data_file_paths, plot_input_channels
 
 np.set_printoptions(threshold=sys.maxsize, precision=4, suppress=True)
 
 def train(model, train_loader, optimizer, criterion, device, config, smpl_preloader, epoch, valid_loader, train_valid_losses):
-	# todo: Use tqdm for progress tracking.
 	model.train()
-	for train_batch_index, (inputs, true_labels) in enumerate(train_loader, 1):
-		inputs, true_labels = inputs.to(device), true_labels.to(device)
-
-		print(f"Train Batch Index:	{train_batch_index}")
-		print(f"Train Inputs Shape:	{inputs.shape}")
-		print(f"Train Labels Shape:	{true_labels.shape}")
-		print()
-
-		# Zero the parameter gradients
-		optimizer.zero_grad()
-		# Forward pass
-		predicted_labels = model(inputs)
-		predicted_labels = smpl_preloader.forward(predicted_labels, true_labels)
-
-		# betas			-> [0:10]	-> 10
-		# transl		-> [10:13]	-> 03 (Root/global translation (pelvis location))
-		# global_orient	-> [19:22]	-> 03 (Root/global orientation (pelvis rotation) in axis-angle)
-		# body_pose		-> [22:91]	-> 69 (23 joints * 3D axis-angle rotations)
-		# body_pose		-> [19:91]	-> 72 (24 joints * 3D axis-angle rotations)
-
-		# SMPL forward pass
-		# betas			= torch.zeros(1, 10)  # Shape coefficients
-		# body_pose		= torch.zeros(1, 69)  # 23 joints * 3D axis-angle rotations
-		# global_orient	= torch.zeros(1, 3)  # Root/global orientation in axis-angle (pelvis rotation)
-		# transl		= torch.zeros(1, 3)  # Root/global translation (pelvis location)
-
-		# output = smpl_male_model(body_pose, global_orient, betas, transl)
-
-		# SMPL Model Computations (outside the model's core logic):
-		# SMPL Forward Pass
-		# Shapes are:
-		# shapedirs:	(B, 10, 6890*3)
-		# v_template:	(B, 6890, 3)
-		# J_regressor:	(B, 6890, 24)
-		# posedirs:		(B, 207, 10*3)
-		# weights:		(B, 10, 24)
-		# B=10, R=6890, D=3
-
-		# 1. Compute the shaped vertices
-		# by multiplying the shape parameters with the shape directions and adding the template vertices.
-		# Shape: (B, 10) -> (B, 1, 10) x (B, 10, 6890*3) -> (B, 1, 6890*3) -> (B, 6890, 3) + (B, 6890, 3) -> (B, 6890, 3)
-		
-		# Extract the vertices of interest
-		# Shape: (B, 6890, 3) -> (B, 10, 3)
-		
-
-		# 2. Compute the posed vertices
-		# Compute the pose feature
-		# by subtracting the identity matrix from the rotation matrix
-		# Shape: (B, 24, 3, 3) -> (B, 23, 3, 3) - (3, 3) -> (B, 23, 3, 3) -> (B, 207)
-		
-		# Compute the posed vertices
-		# by multiplying the pose feature with the pose directions
-		# Shape: (B, 207) -> (B, 1, 207) x (B, 207, 30) -> (B, 1, 30) -> (B, 10, 3)
-		
-		# Add the shaped vertices to get the final vertices
-		# Shape: (B, 10, 3) + (B, 10, 3) -> (B, 10, 3)
-
-
-		# 3. Compute the markers (joint locations) in 3D
-		# Compute the joint locations
-		# by multiplying the shaped vertices with the joint regressor
-		# Shape: (B, 6890, 3) -> (B, 3, 6890) x (B, 6890, 24) -> (B, 3, 24) -> (B, 24, 3)		
-		# Apply global rigid transformations to the joint locations
-		# Shape: (B, 24, 3), (B, 24, 4, 4) = apply_global_rigid_transformations((B, 24, 3, 3), (B, 24, 3), (24,))
-		
-		# Compute the markers in 3D
-		# by subtracting the root joint location and adding the root location
-		# Shape: (B, 24, 3) - (B, 1, 3) + (B, 1, 3) -> (B, 24, 3) (Broadcasting is used to expand the dim 1 to 24)
-		
-
-		# 4. Compute final vertices
-		# Compute the transformation matrices:
-		# Shape: (B, 10, 24) x [(B, 24, 4, 4) -> (B, 24, 16)] -> (B, 10, 16) -> (B, 10, 4, 4)
-		
-		# Add a homogeneous coordinate to the posed vertices
-		# Shape: cat[(B, 10, 3), (B, 10, 1)] -> (B, 10, 4)
-		
-		# Compute final vertices
-		# Shape: (B, 10, 4, 4) x (B, 10, 4, 1) -> (B, 10, 4, 1)
-		
-		# Shape: (B, 10, 4, 1) -> (B, 10, 3) - (B, 1, 3) + (B, 1, 3) -> (B, 10, 3)
-		
-
-
-		# Adjust vertices based on joint addresses by subtracting the joint locations
-		
-		
-		
-		# Shape: (B, 10, 3) - [(B, 24, 3) -> (B, 10, 3)] -> (B, 10, 3)
-		
-
-
-		# Pad the predicted_labels to increase the second dimension from 91 to 191
-		
-
-
-		# Update the predicted body_shape (betas) by subtracting the true body_shape (betas)
-		
-
-		
-
-		# When loss_type == 'anglesDC'
-			# 1/24 of the true_joint_angles[82:154]
-		
-
-		# Compute the scaled difference between true and predicted marker positions
-		
-		# Store the squared difference for potential loss calculation or further processing
-			# Avoid zero gradients
-
-		
-
-		# Normalize predicted labels using standard deviations
-		# 158146914805
-		# 4988513298487
-		# 2780723422608
-
-			# Normalize betas
-			# Normalize body rotation
-			# Normalize joints
-
-		# Initialize a tensor of zeros with the same shape as predicted_labels
-		zeroed_labels = torch.zeros_like(predicted_labels, device=device, requires_grad=True)
-
-		loss_root_rotation = criterion(predicted_labels[:, 10:16], zeroed_labels[:, 10:16]) if config['use_root_loss'] else 0.0
-
-		# Calculate the Euclidean loss for joint positions
-		loss_eucl = criterion(predicted_labels[:, 16:40], zeroed_labels[:, 16:40])
-
-		# Calculate the loss for betas with optional halving
-		loss_betas = criterion(predicted_labels[:, :10], zeroed_labels[:, :10])
-		if config['half_betas_loss']:
-			loss_betas *= 0.5
-
-		# Combine the losses
-		train_loss = loss_root_rotation + loss_eucl + loss_betas if config['use_root_loss'] else loss_eucl + loss_betas
-
-		train_loss.backward()
-		optimizer.step()
-		train_loss *= 1000
-
-############################################################################################################################################################################
-		if train_batch_index % 10 == 0:
-			print(f'Training Summary:')
-			print(f'Epoch:				{epoch}/{config["num_epochs"]}')
-			print(f'Batch:				{train_batch_index}/{len(train_loader)}')
-			print(f'Examples:			{train_batch_index * config["batch_size"]}/{len(train_loader.dataset)}')
-			print(f'Loss:				{train_loss.item():.6f}')
-			print(f'Epoch Progress:		{100.0 * train_batch_index / len(train_loader):.2f}%')
-
-			# print_error_summary(true_labels[:, :72], predicted_label_markers_xyz_detached)
-
-			valid_num_batches = 4
-			valid_loss = evaluate(model, valid_loader, criterion, device, config, smpl_preloader, valid_num_batches=valid_num_batches)
-			print(f'Validation Loss: {valid_loss:.6f}')
-
-			print(f"Train Epoch: {epoch} "
-				  f"[{train_batch_index * config['batch_size']}/{len(train_loader.dataset)} "
-				  f"({100.0 * train_batch_index / len(train_loader):.0f}%)]\n"
-				  f"\tEuclidean Loss for Joint Positions:	{1000 * loss_eucl.item():.2f}\n"
-				  f"\tBetas Loss:				{1000 * loss_betas.item():.2f}\n"
-				  f"\tBody/Root/Pelvis Rotation Loss:		{1000 * loss_root_rotation.item() if config['use_root_loss'] else 0.0:.2f}\n"
-				  f"\tTrain Loss:				{train_loss:.2f}\n"
-				  f"\tValid Loss:				{valid_loss:.2f}\n")
-
-			print(f'Appending to all data losses')
-			train_valid_losses['train_loss'].append(train_loss)
-			train_valid_losses['epoch_ct'].append(epoch)
-			train_valid_losses['valid_loss'].append(valid_loss)
-
-def evaluate(model, valid_loader, criterion, device, config, smpl_preloader, valid_num_batches=None):
-	valid_loss = 0.0
-	n_examples = 0
-	batch_ct = 1
-
-
-	model.eval()
-	with torch.no_grad():
-		for valid_batch_index, (inputs, true_labels) in enumerate(valid_loader, 1):
+	with tqdm(train_loader, desc=f"Training Epoch {epoch}/{config['num_epochs']}", unit="batch") as tepoch:
+		for train_batch_index, (inputs, true_labels) in enumerate(tepoch, 1):
 			inputs, true_labels = inputs.to(device), true_labels.to(device)
 
+			print(f"Train Batch Index:	{train_batch_index}")
+			print(f"Train Inputs Shape:	{inputs.shape}")
+			print(f"Train Labels Shape:	{true_labels.shape}")
+			print()
+
+			# Zero the parameter gradients
+			optimizer.zero_grad()
 			# Forward pass
-			# todo: predicted_labels = model(inputs, bounds.to(device))
 			predicted_labels = model(inputs)
 			predicted_labels = smpl_preloader.forward(predicted_labels, true_labels)
 
 			# Initialize a tensor of zeros with the same shape as predicted_labels
-			zeroed_labels = torch.zeros_like(predicted_labels, device=device, requires_grad=False)
+			zeroed_labels = torch.zeros_like(predicted_labels, device=device, requires_grad=True)
 
-			loss_to_add = 0
 			loss_root_rotation = criterion(predicted_labels[:, 10:16], zeroed_labels[:, 10:16]) if config['use_root_loss'] else 0.0
-			loss_to_add += loss_root_rotation
 
 			# Calculate the Euclidean loss for joint positions
 			loss_eucl = criterion(predicted_labels[:, 16:40], zeroed_labels[:, 16:40])
@@ -221,18 +47,89 @@ def evaluate(model, valid_loader, criterion, device, config, smpl_preloader, val
 			if config['half_betas_loss']:
 				loss_betas *= 0.5
 
-			loss_to_add += (loss_betas + loss_eucl)
-			valid_loss += loss_to_add
+			# Combine the losses
+			train_loss = loss_root_rotation + loss_eucl + loss_betas if config['use_root_loss'] else loss_eucl + loss_betas
 
-			n_examples += config['batch_size']
+			train_loss.backward()
+			optimizer.step()
+			train_loss *= 1000
 
-			if valid_num_batches and (valid_batch_index >= valid_num_batches):
-				break
+			# Update tqdm description
+			tepoch.set_postfix(loss=train_loss.item())
 
-			batch_ct += 1
+			if train_batch_index % 10 == 0:
+				print(f'Training Summary:')
+				print(f'Epoch:				{epoch}/{config["num_epochs"]}')
+				print(f'Batch:				{train_batch_index}/{len(train_loader)}')
+				print(f'Examples:			{train_batch_index * config["batch_size"]}/{len(train_loader.dataset)}')
+				print(f'Loss:				{train_loss.item():.6f}')
+				print(f'Epoch Progress:		{100.0 * train_batch_index / len(train_loader):.2f}%')
 
-		valid_loss /= batch_ct
-		valid_loss *= 1000
+				# print_error_summary(true_labels[:, :72], predicted_label_markers_xyz_detached)
+
+				valid_num_batches = 4
+				valid_loss = validate(model, valid_loader, criterion, device, config, smpl_preloader, valid_num_batches=valid_num_batches)
+				tepoch.set_postfix(loss=train_loss.item(), valid_loss=valid_loss)
+
+				print(f'Validation Loss: {valid_loss:.6f}')
+
+				print(f"Train Epoch: {epoch} "
+					f"[{train_batch_index * config['batch_size']}/{len(train_loader.dataset)} "
+					f"({100.0 * train_batch_index / len(train_loader):.0f}%)]\n"
+					f"\tEuclidean Loss for Joint Positions:	{1000 * loss_eucl.item():.2f}\n"
+					f"\tBetas Loss:				{1000 * loss_betas.item():.2f}\n"
+					f"\tBody/Root/Pelvis Rotation Loss:		{1000 * loss_root_rotation.item() if config['use_root_loss'] else 0.0:.2f}\n"
+					f"\tTrain Loss:				{train_loss:.2f}\n"
+					f"\tValid Loss:				{valid_loss:.2f}\n")
+
+				# Save the losses
+				train_valid_losses['train_loss'].append(train_loss.item())
+				train_valid_losses['epoch_ct'].append(epoch)
+				train_valid_losses['valid_loss'].append(valid_loss)
+
+def validate(model, valid_loader, criterion, device, config, smpl_preloader, valid_num_batches=None):
+	valid_loss = 0.0
+	n_examples = 0
+	batch_ct = 1
+
+
+	model.eval()
+	with torch.no_grad():
+		with tqdm(valid_loader, desc="Validating", unit="batch") as vepoch:
+			for valid_batch_index, (inputs, true_labels) in enumerate(vepoch, 1):
+				inputs, true_labels = inputs.to(device), true_labels.to(device)
+
+				# Forward pass
+				predicted_labels = model(inputs)
+				predicted_labels = smpl_preloader.forward(predicted_labels, true_labels)
+
+				# Initialize a tensor of zeros with the same shape as predicted_labels
+				zeroed_labels = torch.zeros_like(predicted_labels, device=device, requires_grad=False)
+
+				loss_to_add = 0
+				loss_root_rotation = criterion(predicted_labels[:, 10:16], zeroed_labels[:, 10:16]) if config['use_root_loss'] else 0.0
+				loss_to_add += loss_root_rotation
+
+				# Calculate the Euclidean loss for joint positions
+				loss_eucl = criterion(predicted_labels[:, 16:40], zeroed_labels[:, 16:40])
+
+				# Calculate the loss for betas with optional halving
+				loss_betas = criterion(predicted_labels[:, :10], zeroed_labels[:, :10])
+				if config['half_betas_loss']:
+					loss_betas *= 0.5
+
+				loss_to_add += (loss_betas + loss_eucl)
+				valid_loss += loss_to_add
+
+				n_examples += config['batch_size']
+
+				if valid_num_batches and (valid_batch_index >= valid_num_batches):
+					break
+
+				batch_ct += 1
+
+			valid_loss /= batch_ct
+			valid_loss *= 1000
 
 	return valid_loss
 
@@ -350,47 +247,46 @@ def main():
 		'epoch_ct': []
 	}
 
-	for epoch in range(1, config['num_epochs'] + 1):
-		print(f"Epoch [{epoch}/{config['num_epochs']}] started.")
+	with tqdm(range(1, config['num_epochs'] + 1), desc="Epochs", unit="epoch") as epoch_progress:
+		for epoch in epoch_progress:
+			epoch_progress.set_description(f"Epoch {epoch}/{config['num_epochs']}")
+			print(f"Epoch [{epoch}/{config['num_epochs']}] started.")
 
-		# Initialize preloader before training loop (once per epoch)
-		smpl_preloader = SMPLPreloader(smpl_male_model, smpl_feml_model, device, config)
+			# Initialize preloader before training loop (once per epoch)
+			smpl_preloader = SMPLPreloader(smpl_male_model, smpl_feml_model, device, config)
 
-		start_time = time.perf_counter()
-		train(model, train_loader, optimizer, criterion1, device, config, smpl_preloader, epoch, valid_loader=valid_loader, train_valid_losses=train_valid_losses)
+			start_time = time()
+			train(model, train_loader, optimizer, criterion1, device, config, smpl_preloader, epoch, valid_loader, train_valid_losses)
+			elapsed_time = time() - start_time
+			print(f'Time taken by epoch {epoch}: {elapsed_time:.2f} seconds')
 
-		elapsed_time = time.perf_counter() - start_time
-		print(f'Time taken by epoch {epoch}: {elapsed_time:.2f} seconds')
+			# valid_loss = validate(model, valid_loader, criterion2, device, config, smpl_preloader)
+			# print(f"Epoch [{epoch}], Valid Loss: {valid_loss:.4f}")
+			# print(f'Train Valid Losses:	{train_valid_losses}')
 
-		# Save the model and losses every 10 epochs
-		if epoch % 10 == 0 or epoch == config['num_epochs']:
+			# # Save best model
+			# if valid_loss < best_valid_loss:
+			# 	best_valid_loss = valid_loss
+			# 	torch.save(model.state_dict(), "best_model.pth")
+			# 	print("Best model saved!")
 
-			print("Saving convnet.")
-			model_path = f'saved_model_snapshots/convnet_epoch_{epoch}.pt'
-			torch.save(model, model_path)
-			print("Saved convnet.")
+			# Save the model and losses every 10 epochs
+			if epoch % 10 == 0 or epoch == config['num_epochs']:
 
-			# losses_path = f"{config['convnet_fp_prefix']}convnet_losses{save_name}_{epoch}e_{learning_rate}lr.p"
-			losses_path = f"saved_losses/convnet_losses_epoch_{epoch}.p"
-			with open(losses_path, 'wb') as f:
-				pkl.dump(train_valid_losses, f)
-			print("Saved losses.")
+				print("Saving convnet.")
+				model_path = f'saved_model_snapshots/convnet_epoch_{epoch}.pt'
+				torch.save(model.state_dict(), model_path)
+				print("Saved convnet.")
+
+				losses_path = f"saved_losses/convnet_losses_epoch_{epoch}.p"
+				with open(losses_path, 'wb') as f:
+					pkl.dump(train_valid_losses, f)
+				print("Saved losses.")
 
 
-		# valid_loss, valid_accuracy = validate(model, valid_loader, criterion2, device, config, smpl_preloader)
-		# print(f"Epoch [{epoch}], Valid Loss: {valid_loss:.4f}, Valid Accuracy: {valid_accuracy:.2f}%")
-
-		# # Save best model
-		# if valid_loss < best_valid_loss:
-		# 	best_valid_loss = valid_loss
-		# 	torch.save(model.state_dict(), "best_model.pth")
-		# 	print("Best model saved!")
-
-		print(f'Train Valid Losses:	{train_valid_losses}')
-
-		print(f"Epoch [{epoch}/{config['num_epochs']}] completed.")
-		# if config['verbose']:
-		# 	plot_input_channels(inputs_batch, train_batch_idx)
+			print(f"Epoch [{epoch}/{config['num_epochs']}] completed.")
+			# if config['verbose']:
+			# 	plot_input_channels(inputs_batch, train_batch_idx)
 
 	# # 7. Load Best Model for Final Testing
 	# best_model = PressureNet(in_channels=train_dataset[0][0].shape[0], num_classes=88, use_relu=config['use_relu']).to(device)
