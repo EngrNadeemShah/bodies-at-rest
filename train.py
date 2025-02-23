@@ -14,22 +14,29 @@ from time import time
 from tqdm import tqdm
 import pickle as pkl
 from utils import print_error_summary, retrieve_data_file_paths, plot_input_channels
+from datetime import datetime
+import os
 
 np.set_printoptions(threshold=sys.maxsize, precision=4, suppress=True)
 
-def train(model, train_loader, optimizer, criterion, device, config, smpl_preloader, epoch, valid_loader, train_valid_losses):
+def train(model, train_loader, optimizer, criterion, device, config, smpl_preloader, epoch):
 	model.train()
+	running_loss = 0.0
+	total_samples = 0
+
 	with tqdm(train_loader, desc=f"Training Epoch {epoch}/{config['num_epochs']}", unit="batch") as tepoch:
 		for train_batch_index, (inputs, true_labels) in enumerate(tepoch, 1):
 			inputs, true_labels = inputs.to(device), true_labels.to(device)
+			batch_size = inputs.shape[0]	# Get the actual batch size
+			total_samples += batch_size		# Keep track of the total number of samples
 
-			print(f"Train Batch Index:	{train_batch_index}")
-			print(f"Train Inputs Shape:	{inputs.shape}")
-			print(f"Train Labels Shape:	{true_labels.shape}")
-			print()
+			# print(f"Train Batch Index:	{train_batch_index}")
+			# print(f"Train Inputs Shape:	{inputs.shape}")
+			# print(f"Train Labels Shape:	{true_labels.shape}")
+			# print()
 
-			# Zero the parameter gradients
-			optimizer.zero_grad()
+			optimizer.zero_grad()	# Clear gradients
+
 			# Forward pass
 			predicted_labels = model(inputs)
 			predicted_labels = smpl_preloader.forward(predicted_labels, true_labels)
@@ -37,67 +44,47 @@ def train(model, train_loader, optimizer, criterion, device, config, smpl_preloa
 			# Initialize a tensor of zeros with the same shape as predicted_labels
 			zeroed_labels = torch.zeros_like(predicted_labels, device=device, requires_grad=True)
 
+			# Calculate the losses
 			loss_root_rotation = criterion(predicted_labels[:, 10:16], zeroed_labels[:, 10:16]) if config['use_root_loss'] else 0.0
-
-			# Calculate the Euclidean loss for joint positions
-			loss_eucl = criterion(predicted_labels[:, 16:40], zeroed_labels[:, 16:40])
-
-			# Calculate the loss for betas with optional halving
-			loss_betas = criterion(predicted_labels[:, :10], zeroed_labels[:, :10])
+			loss_eucl = criterion(predicted_labels[:, 16:40], zeroed_labels[:, 16:40])	# Euclidean loss for joint positions
+			loss_betas = criterion(predicted_labels[:, :10], zeroed_labels[:, :10])		# Loss for betas with optional halving
 			if config['half_betas_loss']:
 				loss_betas *= 0.5
 
 			# Combine the losses
-			train_loss = loss_root_rotation + loss_eucl + loss_betas if config['use_root_loss'] else loss_eucl + loss_betas
+			loss = loss_root_rotation + loss_eucl + loss_betas if config['use_root_loss'] else loss_eucl + loss_betas
 
-			train_loss.backward()
-			optimizer.step()
-			train_loss *= 1000
+			loss.backward()		# Compute gradients
+			optimizer.step()	# Update weights
+			loss *= 1000		# Apply scaling factor
+			running_loss += loss.item() * batch_size	# Accumulate loss
 
 			# Update tqdm description
-			tepoch.set_postfix(loss=train_loss.item())
+			tepoch.set_postfix(loss=loss.item())
+		return running_loss / total_samples	# Average loss per sample
 
-			if train_batch_index % 10 == 0:
-				print(f'Training Summary:')
-				print(f'Epoch:				{epoch}/{config["num_epochs"]}')
-				print(f'Batch:				{train_batch_index}/{len(train_loader)}')
-				print(f'Examples:			{train_batch_index * config["batch_size"]}/{len(train_loader.dataset)}')
-				print(f'Loss:				{train_loss.item():.6f}')
-				print(f'Epoch Progress:		{100.0 * train_batch_index / len(train_loader):.2f}%')
+			# if train_batch_index % 10 == 0:
+			# 	# print_error_summary(true_labels[:, :72], predicted_label_markers_xyz_detached)
 
-				# print_error_summary(true_labels[:, :72], predicted_label_markers_xyz_detached)
+			# 	print(f"Train Epoch: {epoch} "
+			# 		f"[{train_batch_index * config['batch_size']}/{len(train_loader.dataset)} "
+			# 		f"({100.0 * train_batch_index / len(train_loader):.0f}%)]\n"
+			# 		f"\tEuclidean Loss for Joint Positions:	{1000 * loss_eucl.item():.2f}\n"
+			# 		f"\tBetas Loss:				{1000 * loss_betas.item():.2f}\n"
+			# 		f"\tBody/Root/Pelvis Rotation Loss:		{1000 * loss_root_rotation.item() if config['use_root_loss'] else 0.0:.2f}\n"
+			# 		f"\tTotal Loss:				{loss.item():.2f}\n")
 
-				valid_num_batches = 4
-				valid_loss = validate(model, valid_loader, criterion, device, config, smpl_preloader, valid_num_batches=valid_num_batches)
-				tepoch.set_postfix(loss=train_loss.item(), valid_loss=valid_loss)
-
-				print(f'Validation Loss: {valid_loss:.6f}')
-
-				print(f"Train Epoch: {epoch} "
-					f"[{train_batch_index * config['batch_size']}/{len(train_loader.dataset)} "
-					f"({100.0 * train_batch_index / len(train_loader):.0f}%)]\n"
-					f"\tEuclidean Loss for Joint Positions:	{1000 * loss_eucl.item():.2f}\n"
-					f"\tBetas Loss:				{1000 * loss_betas.item():.2f}\n"
-					f"\tBody/Root/Pelvis Rotation Loss:		{1000 * loss_root_rotation.item() if config['use_root_loss'] else 0.0:.2f}\n"
-					f"\tTrain Loss:				{train_loss:.2f}\n"
-					f"\tValid Loss:				{valid_loss:.2f}\n")
-
-				# Save the losses
-				train_valid_losses['train_loss'].append(train_loss.item())
-				train_valid_losses['epoch_ct'].append(epoch)
-				train_valid_losses['valid_loss'].append(valid_loss)
-
-def validate(model, valid_loader, criterion, device, config, smpl_preloader, valid_num_batches=None):
-	valid_loss = 0.0
-	n_examples = 0
-	batch_ct = 1
-
+def validate(model, valid_loader, criterion, device, config, smpl_preloader):
+	running_loss = 0.0
+	total_samples = 0
 
 	model.eval()
 	with torch.no_grad():
 		with tqdm(valid_loader, desc="Validating", unit="batch") as vepoch:
 			for valid_batch_index, (inputs, true_labels) in enumerate(vepoch, 1):
 				inputs, true_labels = inputs.to(device), true_labels.to(device)
+				batch_size = inputs.shape[0]	# Get the actual batch size
+				total_samples += batch_size		# Keep track of the total number of samples
 
 				# Forward pass
 				predicted_labels = model(inputs)
@@ -106,36 +93,23 @@ def validate(model, valid_loader, criterion, device, config, smpl_preloader, val
 				# Initialize a tensor of zeros with the same shape as predicted_labels
 				zeroed_labels = torch.zeros_like(predicted_labels, device=device, requires_grad=False)
 
-				loss_to_add = 0
+				# Calculate the losses
 				loss_root_rotation = criterion(predicted_labels[:, 10:16], zeroed_labels[:, 10:16]) if config['use_root_loss'] else 0.0
-				loss_to_add += loss_root_rotation
-
-				# Calculate the Euclidean loss for joint positions
-				loss_eucl = criterion(predicted_labels[:, 16:40], zeroed_labels[:, 16:40])
-
-				# Calculate the loss for betas with optional halving
-				loss_betas = criterion(predicted_labels[:, :10], zeroed_labels[:, :10])
+				loss_eucl = criterion(predicted_labels[:, 16:40], zeroed_labels[:, 16:40])	# Euclidean loss for joint positions
+				loss_betas = criterion(predicted_labels[:, :10], zeroed_labels[:, :10])		# Loss for betas with optional halving
 				if config['half_betas_loss']:
 					loss_betas *= 0.5
 
-				loss_to_add += (loss_betas + loss_eucl)
-				valid_loss += loss_to_add
+				# Combine the losses
+				loss = loss_root_rotation + loss_eucl + loss_betas if config['use_root_loss'] else loss_eucl + loss_betas
 
-				n_examples += config['batch_size']
-
-				if valid_num_batches and (valid_batch_index >= valid_num_batches):
-					break
-
-				batch_ct += 1
-
-			valid_loss /= batch_ct
-			valid_loss *= 1000
-
-	return valid_loss
+				loss *= 1000		# Apply scaling factor
+				running_loss += loss.item() * batch_size	# Accumulate loss
+			return running_loss / total_samples		# Average loss per sample
 
 def main():
     # 0. Initializations and Configurations
-	# Parse the command line arguments
+	# 0.1. Parse the command line arguments
 	parser = argparse.ArgumentParser(description='Train PressureNet Model')
 	parser.add_argument('--add_noise', type=float, default=0.1, help='amount of noise to add, 0 means no noise')
 	parser.add_argument('--include_weight_height', action='store_true', default=False, help='include height and weight as input channels')
@@ -147,7 +121,7 @@ def main():
 	parser.add_argument('--use_relu', action='store_true', default=False, help='use ReLU in place of Tanh in middle layers of CNN')
 	args = parser.parse_args()
 
-	# Set the configuration parameters
+	# 0.2. Set the configuration parameters
 	config = {
 		'add_noise':			args.add_noise,
 		'include_weight_height':args.include_weight_height,
@@ -165,9 +139,10 @@ def main():
 		'normalize_per_image':	True,
 		'half_betas_loss':		False,	# Halve the loss for betas
 		'use_root_loss':		False,	# Use the root rotation loss
+		'save_model_every':		10,
 	}
 
-	# Normalization standard deviations for each channel
+	# 0.3. Normalization standard deviations for each channel
 	if config['normalize_per_image']:
 		config['normalize_std_dev'] = np.ones(10, dtype=np.float32)
 	else:
@@ -184,7 +159,7 @@ def main():
 			1 / 14.6293   # height
 		])
 
-	# Check if CUDA is available
+	# 0.4. Check if CUDA is available
 	is_cuda_available = torch.cuda.is_available()
 	device = torch.device("cuda" if is_cuda_available else "cpu")
 	print(f"Device (CUDA/CPU):  {device}")
@@ -194,6 +169,10 @@ def main():
 		print(f"Current Device:     {torch.cuda.current_device()}")
 	else:
 		print("CUDA is not available, using CPU.")
+
+	# 0.5. Create the directories for saving the model and losses
+	os.makedirs('checkpoints', exist_ok=True)
+	os.makedirs('losses', exist_ok=True)
 
 
 	# 1. Data Preparation
@@ -242,49 +221,45 @@ def main():
 	best_valid_loss = float('inf')
 
 	train_valid_losses = {
+		'epoch': [],
 		'train_loss': [],
 		'valid_loss': [],
-		'epoch_ct': []
 	}
 
 	with tqdm(range(1, config['num_epochs'] + 1), desc="Epochs", unit="epoch") as epoch_progress:
 		for epoch in epoch_progress:
 			epoch_progress.set_description(f"Epoch {epoch}/{config['num_epochs']}")
-			print(f"Epoch [{epoch}/{config['num_epochs']}] started.")
 
 			# Initialize preloader before training loop (once per epoch)
 			smpl_preloader = SMPLPreloader(smpl_male_model, smpl_feml_model, device, config)
 
-			start_time = time()
-			train(model, train_loader, optimizer, criterion1, device, config, smpl_preloader, epoch, valid_loader, train_valid_losses)
-			elapsed_time = time() - start_time
-			print(f'Time taken by epoch {epoch}: {elapsed_time:.2f} seconds')
+			train_loss = train(model, train_loader, optimizer, criterion1, device, config, smpl_preloader, epoch)
+			valid_loss = validate(model, valid_loader, criterion1, device, config, smpl_preloader)
 
-			# valid_loss = validate(model, valid_loader, criterion2, device, config, smpl_preloader)
-			# print(f"Epoch [{epoch}], Valid Loss: {valid_loss:.4f}")
-			# print(f'Train Valid Losses:	{train_valid_losses}')
+			# Save the losses
+			train_valid_losses['epoch'].append(epoch)
+			train_valid_losses['train_loss'].append(train_loss)
+			train_valid_losses['valid_loss'].append(valid_loss)
 
-			# # Save best model
-			# if valid_loss < best_valid_loss:
-			# 	best_valid_loss = valid_loss
-			# 	torch.save(model.state_dict(), "best_model.pth")
-			# 	print("Best model saved!")
+			# Save best model
+			if valid_loss < best_valid_loss:
+				best_valid_loss = valid_loss
+				torch.save(model.state_dict(), 'checkpoints/best_model.pth')
+				print("Best model saved!")
 
-			# Save the model and losses every 10 epochs
-			if epoch % 10 == 0 or epoch == config['num_epochs']:
-
-				print("Saving convnet.")
-				model_path = f'saved_model_snapshots/convnet_epoch_{epoch}.pt'
+			# Save the model and losses every 'save_model_every' epochs
+			if epoch % config['save_model_every'] == 0 or epoch == config['num_epochs']:
+				timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+				model_path = f'checkpoints/model_epoch_{epoch}_valid_loss_{valid_loss:.4f}_{timestamp}.pth'
 				torch.save(model.state_dict(), model_path)
-				print("Saved convnet.")
+				print(f"Model saved at {model_path}")
 
-				losses_path = f"saved_losses/convnet_losses_epoch_{epoch}.p"
+				losses_path = f"losses/losses_epoch_{epoch}_{timestamp}.p"
 				with open(losses_path, 'wb') as f:
 					pkl.dump(train_valid_losses, f)
-				print("Saved losses.")
+				print(f"Losses saved at {losses_path}")
 
 
-			print(f"Epoch [{epoch}/{config['num_epochs']}] completed.")
 			# if config['verbose']:
 			# 	plot_input_channels(inputs_batch, train_batch_idx)
 
