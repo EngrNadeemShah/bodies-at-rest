@@ -3,23 +3,20 @@ import torch
 import torch.nn.functional as F
 from utils import apply_global_rigid_transformations, convert_axis_angle_to_rotation_matrix
 
-
 class SMPLPreloader:
 	def __init__(self, smpl_male, smpl_feml, device, config):
-
 		self.device = device
 		self.batch_size = config['batch_size']
 		self.vertices = [1325, 336, 1032, 4515, 1374, 4848, 1739, 5209, 1960, 5423]
 		self.parents = np.array([-1, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 9, 9, 12, 13, 14, 16, 17, 18, 19, 20, 21])
 
-
 		# Load gender-dependent parameters
-		self.shapedirs_f	= smpl_feml.shapedirs.permute(2, 0, 1)  # (10, 6890, 3)
-		self.shapedirs_m	= smpl_male.shapedirs.permute(2, 0, 1)  # (10, 6890, 3)
-		self.v_template_f	= smpl_feml.v_template  # (6890, 3)
-		self.v_template_m	= smpl_male.v_template  # (6890, 3)
-		self.J_regressor_f	= smpl_feml.J_regressor  # (24, 6890)
-		self.J_regressor_m	= smpl_male.J_regressor  # (24, 6890)
+		self.shapedirs_f	= smpl_feml.shapedirs.permute(2, 0, 1).to(device)	# (10, 6890, 3)
+		self.shapedirs_m	= smpl_male.shapedirs.permute(2, 0, 1).to(device)	# (10, 6890, 3)
+		self.v_template_f	= smpl_feml.v_template.to(device)	# (6890, 3)
+		self.v_template_m	= smpl_male.v_template.to(device)	# (6890, 3)
+		self.J_regressor_f	= smpl_feml.J_regressor.to(device)	# (24, 6890)
+		self.J_regressor_m	= smpl_male.J_regressor.to(device)	# (24, 6890)
 
 		# Select the 10 vertices of interest for posedirs and weights
 		if config['mod'] == 1:
@@ -28,14 +25,12 @@ class SMPLPreloader:
 			self.weights_f	= smpl_feml.lbs_weights.index_select(0, torch.tensor(self.vertices, device=self.device))	# (10, 24)
 			self.weights_m	= smpl_male.lbs_weights.index_select(0, torch.tensor(self.vertices, device=self.device))	# (10, 24)
 		elif config['mod'] == 2:
-			self.posedirs_f	= smpl_feml.posedirs.view(-1, 6890, 3)  # (207, 6890, 3)
-			self.posedirs_m	= smpl_male.posedirs.view(-1, 6890, 3)  # (207, 6890, 3)
-			self.weights_f	= smpl_feml.weights  # (6890, 24)
-			self.weights_m	= smpl_male.weights  # (6890, 24)
+			self.posedirs_f	= smpl_feml.posedirs.view(-1, 6890, 3).to(device)	# (207, 6890, 3)
+			self.posedirs_m	= smpl_male.posedirs.view(-1, 6890, 3).to(device)	# (207, 6890, 3)
+			self.weights_f	= smpl_feml.weights.to(device)	# (6890, 24)
+			self.weights_m	= smpl_male.weights.to(device)	# (6890, 24)
 		else:
 			raise ValueError("Invalid configuration for 'mod'. It must be either 1 or 2.")
-
-
 
 		# Expand parameters to batch size for efficiency
 		self.expand_params()
@@ -85,7 +80,6 @@ class SMPLPreloader:
 		return shapedirs, v_template, J_regressor, posedirs, weights, BRD_shape
 
 	def forward(self, predicted_labels, true_labels):
-
 		batch_size = true_labels.shape[0]
 
 		predicted_label_betas = predicted_labels[:, 0:10].clone()

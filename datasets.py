@@ -45,7 +45,6 @@ class PressurePoseDataset(Dataset):
 	def __len__(self):
 		return len(self.data_indices)
 
-
 	def _process_pressure_map(self, pressure_map):
 		pressure_map = np.clip(pressure_map, 0, 100).reshape(64, 27)
 		if self.config['add_noise'] == 0:
@@ -171,7 +170,6 @@ class PressurePoseDataset(Dataset):
 		input_x = zoom(input_x, zoom=(1, 2, 2), order=1)
 		return input_x
 
-
 	def _load_label(self, file_data, data_idx, gender):
 		g1, g2 = (1, 0) if gender == "f" else (0, 1) if gender == "m" else (None, None)
 		s1 = 1	# always 1 because we always have synthetic data
@@ -196,7 +194,6 @@ class PressurePoseDataset(Dataset):
 				file_data['root_xyz_est'][data_idx][:3],
 				file_data['root_atan2_est'][data_idx][:6]])
 		return label_y
-
 
 	def __getitem__(self, idx):
 		file_path, data_idx, gender = self.data_indices[idx]
