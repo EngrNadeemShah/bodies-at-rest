@@ -11,12 +11,13 @@
 			"program": "${workspaceFolder}/PressureNet/train_pressurenet.py",
 			"console": "integratedTerminal",
 			"cwd": "${workspaceFolder}/PressureNet",
-			"args": ["${command:pickArgs}"],
-			"envFile": "${workspaceFolder}/.conda"
-			// "args": [
-			// 	"--mod",
-			// 	"1"
-			// ],
+			// "args": ["${command:pickArgs}"],
+			"envFile": "${workspaceFolder}/.conda",
+			"args": [
+				"--mod",
+				"2",
+				"--pmr",
+			],
 		},
 
 		{

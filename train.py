@@ -116,7 +116,7 @@ def main():
     # 0. Initializations and Configurations
 	# 0.1. Parse the command line arguments
 	parser = argparse.ArgumentParser(description='Train PressureNet Model')
-	parser.add_argument('--add_noise', type=float, default=0.1, help='amount of noise to add, 0 means no noise')
+	parser.add_argument('--add_noise', type=float, default=0, help='amount of noise to add, 0 means no noise')	# 0.1
 	parser.add_argument('--include_weight_height', action='store_true', default=False, help='include height and weight as input channels')
 	parser.add_argument('--omit_contact_sobel', action='store_true', default=False, help='omit contact sobel')
 	parser.add_argument('--use_hover', action='store_true', default=False, help='set depth_map_estimated_positive (channel 1) to 0')
@@ -145,8 +145,6 @@ def main():
 		'half_betas_loss':		False,	# Halve the loss for betas
 		'use_root_loss':		False,	# Use the root rotation loss
 		'save_model_every':		10,
-		'num_workers':			4,
-		'pin_memory':			True,
 	}
 
 	# 0.3. Normalization standard deviations for each channel
@@ -169,6 +167,8 @@ def main():
 	# 0.4. Check if CUDA is available
 	is_cuda_available = torch.cuda.is_available()
 	device = torch.device("cuda" if is_cuda_available else "cpu")
+
+	# Print the device information
 	print(f"Device (CUDA/CPU):  {device}")
 	if is_cuda_available:
 		print(f"GPU Name:           {torch.cuda.get_device_name(0)}")
@@ -176,6 +176,10 @@ def main():
 		print(f"Current Device:     {torch.cuda.current_device()}")
 	else:
 		print("CUDA is not available, using CPU.")
+
+	# Set the number of workers and pin memory based on the device
+	config['num_workers'] = 4 if device.type == 'cuda' else os.cpu_count()
+	config['pin_memory'] = device.type == 'cuda'
 
 	# 0.5. Create the directories for saving the model and losses
 	os.makedirs('checkpoints', exist_ok=True)
