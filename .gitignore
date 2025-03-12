@@ -1,4 +1,3 @@
-### By ChatGPT STARTS HERE ###
 # Python bytecode
 __pycache__/
 *.pyc
@@ -6,7 +5,7 @@ __pycache__/
 # Virtual environment
 venv/
 .env/
-env/
+.conda
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
@@ -16,12 +15,19 @@ env/
 *.sqlite3
 
 # IDE and editor files
-.vscode/
+# .vscode/
 .idea/
 *.swp
 
 # Others
 .DS_Store
-### By ChatGPT ENDS HERE ###
 
-data_BR/
+# Pickle files (As they are large in size)
+*.pkl
+*.p
+*.pt
+
+# Local files and folders
+x_rough.ipynb
+
+synthetic_data/

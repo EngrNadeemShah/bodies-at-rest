@@ -6,8 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.pylab import *
 
-
-#PyTorch libraries
+# PyTorch libraries
 import argparse
 import torch
 import torch.nn as nn
@@ -15,17 +14,21 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torchvision import transforms
 from torch.autograd import Variable
+
 import chumpy as ch
 
-import convnet as convnet
-import tf.transformations as tft
+import convnet_br as convnet
+# import tf.transformations as tft
 
 # import hrl_lib.util as ut
 import cPickle as pickle
+
+
 # from hrl_lib.util import load_pickle
 def load_pickle(filename):
     with open(filename, 'rb') as f:
         return pickle.load(f)
+
 
 import sys
 sys.path.insert(0, '../lib_py')
@@ -36,7 +39,6 @@ from preprocessing_lib_br import PreprocessingLib
 from tensorprep_lib_br import TensorPrepLib
 from unpack_batch_lib_br import UnpackBatchLib
 
-
 import cPickle as pkl
 import random
 from scipy import ndimage
@@ -46,15 +48,15 @@ from scipy.ndimage.interpolation import zoom
 
 np.set_printoptions(threshold=sys.maxsize)
 
-MAT_WIDTH = 0.762 #metres
-MAT_HEIGHT = 1.854 #metres
-MAT_HALF_WIDTH = MAT_WIDTH/2
-NUMOFTAXELS_X = 64#73 #taxels
-NUMOFTAXELS_Y = 27#30
+MAT_WIDTH = 0.762  # metres
+MAT_HEIGHT = 1.854  # metres
+MAT_HALF_WIDTH = MAT_WIDTH / 2
+NUMOFTAXELS_X = 64  # 73 #taxels
+NUMOFTAXELS_Y = 27  # 30
 NUMOFOUTPUTDIMS = 3
 NUMOFOUTPUTNODES_TRAIN = 24
 NUMOFOUTPUTNODES_TEST = 10
-INTER_SENSOR_DISTANCE = 0.0286#metres
+INTER_SENSOR_DISTANCE = 0.0286  # metres
 LOW_TAXEL_THRESH_X = 0
 LOW_TAXEL_THRESH_Y = 0
 HIGH_TAXEL_THRESH_X = (NUMOFTAXELS_X - 1)
@@ -68,12 +70,12 @@ if torch.cuda.is_available():
     # Use for GPU
     GPU = True
     dtype = torch.cuda.FloatTensor
-    print'######################### CUDA is available! #############################'
+    print '######################### CUDA is available! #############################'
 else:
     # Use for CPU
     GPU = False
     dtype = torch.FloatTensor
-    print'############################## USING CPU #################################'
+    print '############################## USING CPU #################################'
 
 
 class PhysicalTrainer():
@@ -88,14 +90,15 @@ class PhysicalTrainer():
 
         # change this to 'direct' when you are doing baseline methods
         self.CTRL_PNL = {}
-        self.CTRL_PNL['batch_size'] = 64
         self.CTRL_PNL['loss_vector_type'] = opt.losstype
         self.CTRL_PNL['verbose'] = opt.verbose
         self.opt = opt
+        self.CTRL_PNL['batch_size'] = 64
         self.CTRL_PNL['num_epochs'] = 100
         self.CTRL_PNL['incl_inter'] = True
         self.CTRL_PNL['shuffle'] = False
         self.CTRL_PNL['incl_ht_wt_channels'] = opt.htwt
+        self.CTRL_PNL['loss_root'] = opt.loss_root
         self.CTRL_PNL['omit_cntct_sobel'] = opt.omit_cntct_sobel
         self.CTRL_PNL['use_hover'] = opt.use_hover
         self.CTRL_PNL['incl_pmat_cntct_input'] = True
@@ -103,14 +106,14 @@ class PhysicalTrainer():
         self.CTRL_PNL['num_input_channels'] = 2
         self.CTRL_PNL['GPU'] = GPU
         self.CTRL_PNL['dtype'] = dtype
-        self.CTRL_PNL['repeat_real_data_ct'] = 1
         self.CTRL_PNL['regr_angles'] = 1
         self.CTRL_PNL['depth_map_labels'] = False
-        self.CTRL_PNL['dropout'] = False
         self.CTRL_PNL['depth_map_labels_test'] = True #can only be true is we have 100% synth for testing
         self.CTRL_PNL['depth_map_output'] = True
         self.CTRL_PNL['depth_map_input_est'] = False #do this if we're working in a two-part regression
         self.CTRL_PNL['adjust_ang_from_est'] = self.CTRL_PNL['depth_map_input_est'] #holds betas and root same as prior estimate
+        self.CTRL_PNL['repeat_real_data_ct'] = 1
+        self.CTRL_PNL['dropout'] = False
         self.CTRL_PNL['clip_sobel'] = True
         self.CTRL_PNL['clip_betas'] = True
         self.CTRL_PNL['mesh_bottom_dist'] = True
@@ -168,17 +171,18 @@ class PhysicalTrainer():
                                              1. / 30.216647403350,  #weight
                                              1. / 14.629298141231]  #height
 
-
         if self.CTRL_PNL['normalize_std'] == False:
             for i in range(10):
                 self.CTRL_PNL['norm_std_coeffs'][i] *= 0.
                 self.CTRL_PNL['norm_std_coeffs'][i] += 1.
 
 
+
         if self.CTRL_PNL['depth_map_output'] == True: #we need all the vertices if we're going to regress the depth maps
             self.verts_list = "all"
         else:
             self.verts_list = [1325, 336, 1032, 4515, 1374, 4848, 1739, 5209, 1960, 5423]
+
 
 
         self.mat_size = (NUMOFTAXELS_X, NUMOFTAXELS_Y)
@@ -201,7 +205,6 @@ class PhysicalTrainer():
         test_dat_f_real = TensorPrepLib().load_files_to_database(testing_database_file_f, creation_type = 'real', reduce_data = reduce_data)
         test_dat_m_real = TensorPrepLib().load_files_to_database(testing_database_file_m, creation_type = 'real', reduce_data = reduce_data)
 
-
         for possible_dat in [test_dat_f_synth, test_dat_m_synth, test_dat_f_real, test_dat_m_real]:
             if possible_dat is not None:
                 self.dat = possible_dat
@@ -211,7 +214,6 @@ class PhysicalTrainer():
                 self.dat['root_xyz_est'] = []
                 self.dat['betas_est'] = []
                 self.dat['root_atan2_est'] = []
-
 
 
         self.test_x_flat = []  # Initialize the testing pressure mat list
