@@ -17,6 +17,7 @@ from utils import print_error_summary, retrieve_data_file_paths, plot_input_chan
 from datetime import datetime
 import os
 from torch.amp import GradScaler, autocast
+from torchinfo import summary
 
 np.set_printoptions(threshold=sys.maxsize, precision=4, suppress=True)
 
@@ -152,8 +153,9 @@ def main():
 		print("CUDA is not available, using CPU.")
 
 	# Set the number of workers and pin memory based on the device
-	config['num_workers'] = 4 if device.type == 'cuda' else os.cpu_count()
+	config['num_workers'] = os.cpu_count() - 2
 	config['pin_memory'] = device.type == 'cuda'
+	config['persistent_workers'] = True
 
 	# 0.5. Create the directories for saving the model and losses
 	os.makedirs('checkpoints', exist_ok=True)
@@ -166,8 +168,8 @@ def main():
 	hdf5_file_path = 'synthetic_data/pre_processed/preprocessed_mod1_float32_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_1__normalize_per_image_True.hdf5'
 	train_dataset = HDF5Dataset(hdf5_file_path=hdf5_file_path, split='train')
 	valid_dataset = HDF5Dataset(hdf5_file_path=hdf5_file_path, split='test')
-	train_loader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, num_workers=config['num_workers'], pin_memory=config['pin_memory'])
-	valid_loader = DataLoader(valid_dataset, batch_size=config['batch_size'], shuffle=False, num_workers=config['num_workers'], pin_memory=config['pin_memory'])
+	train_loader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, num_workers=config['num_workers'], pin_memory=config['pin_memory'], persistent_workers=config['persistent_workers'])
+	valid_loader = DataLoader(valid_dataset, batch_size=config['batch_size'], shuffle=False, num_workers=config['num_workers'], pin_memory=config['pin_memory'], persistent_workers=config['persistent_workers'])
 
 	print(f"Number of Train Examples:		{len(train_dataset)}")
 	print(f"Number of Valid Examples:		{len(valid_dataset)}")
@@ -175,6 +177,8 @@ def main():
 	print(f"Number of Valid Batches:		{len(valid_loader)}")
 	print(f"Batch Size:				{config['batch_size']}")
 	print(f"Number of Epochs:			{config['num_epochs']}")
+	print(f"num_workers:				{config['num_workers']}")
+	print(f"pin_memory:				{config['pin_memory']}")
 
 
 	# 2. Define the model, optimizer, and loss functions
@@ -183,6 +187,11 @@ def main():
 	criterion1 = nn.L1Loss()
 	criterion2 = nn.MSELoss()
 
+	if config['verbose']:
+		print("Model Summary:")
+		print(model)
+		print()
+		summary(model, input_size=(config['batch_size'], train_dataset[0][0].shape[0], 128, 54), device=device.type)
 
 	# 3. Load SMPL models
 	smpl_male_model_path = 'smpl/models/basicmodel_m_lbs_10_207_0_v1.0.0.pkl'
