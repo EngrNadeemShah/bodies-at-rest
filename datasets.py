@@ -8,6 +8,7 @@ from random import normalvariate
 import scipy.stats as ss
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+import h5py
 mpl.rcParams['text.usetex'] = False  # Disable LaTeX rendering
 mpl.rcParams['font.family'] = 'DejaVu Sans'  # Set default font family
 mpl.use('TkAgg')
@@ -207,3 +208,60 @@ class PressurePoseDataset(Dataset):
 
 		# Convert the input and label data to PyTorch tensors
 		return torch.from_numpy(input_x).to(torch.float32), torch.from_numpy(label_y).to(torch.float32)
+
+class HDF5Dataset(Dataset):
+    def __init__(self, hdf5_file_path, split='train', transform=None):
+        """
+        Args:
+            hdf5_file_path (str): Path to the HDF5 file.
+            split (str): 'train' or 'test' to load the respective dataset.
+            transform (callable, optional): Optional transform to apply to inputs.
+        """
+        self.hdf5_file_path = hdf5_file_path
+        self.split = split
+        self.transform = transform
+        
+        # Open the file to get keys
+        with h5py.File(self.hdf5_file_path, 'r') as hdf5_file:
+            self.groups = []
+            self.lengths = []
+            
+            for key in hdf5_file[split]:  # Iterate over different body postures
+                for gender in hdf5_file[f'{split}/{key}']:  # Iterate over male/female
+                    inputs_path = f'{split}/{key}/{gender}/inputs'
+                    labels_path = f'{split}/{key}/{gender}/labels'
+                    
+                    if inputs_path in hdf5_file and labels_path in hdf5_file:
+                        self.groups.append((inputs_path, labels_path))
+                        self.lengths.append(hdf5_file[inputs_path].shape[0])
+
+            self.cumulative_lengths = torch.cumsum(torch.tensor(self.lengths), dim=0)
+            self.total_size = self.cumulative_lengths[-1].item()
+    
+    def __len__(self):
+        return self.total_size
+    
+    def __getitem__(self, idx):
+        with h5py.File(self.hdf5_file_path, 'r') as hdf5_file:
+            # Find the right dataset based on cumulative lengths
+            # dataset_idx = next(i for i, length in enumerate(self.cumulative_lengths) if idx < length)
+            for i, length in enumerate(self.cumulative_lengths):
+                if idx < length:
+                    dataset_idx = i
+                    break
+            
+            if dataset_idx > 0:
+                idx = idx - self.cumulative_lengths[dataset_idx - 1].item()
+            
+            inputs_path, labels_path = self.groups[dataset_idx]
+            
+            input_data = hdf5_file[inputs_path][idx]
+            label_data = hdf5_file[labels_path][idx]
+            
+            input_tensor = torch.tensor(input_data, dtype=torch.float32)
+            label_tensor = torch.tensor(label_data, dtype=torch.float32)
+            
+            if self.transform:
+                input_tensor = self.transform(input_tensor)
+            
+            return input_tensor, label_tensor

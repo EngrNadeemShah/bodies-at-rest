@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 import psutil
 import gc
 import torch
+import h5py
 
 
 def load_pickle(file_path):
@@ -41,6 +42,59 @@ class DataPreprocessor:
 
 		torch.save(data_dict, destination_path)
 		print(f"Saved to {destination_path}")
+
+	def save_data_as_hdf5(self, inputs, labels, source_pkl_path):
+		"""
+		Save preprocessed data efficiently into an HDF5 file, appending if the dataset already exists.
+
+		Arguments:
+		- inputs (np.array): Pressure map data.
+		- labels (np.array): Corresponding labels.
+		- source_path (str): Original file path used to infer hierarchy.
+		"""
+
+		config_summary = '__'.join([f'{key}_{value}' for key, value in self.config.items() if key != 'normalize_std_dev' and key != 'hdf5_file_path'])
+		hdf5_file_path = self.config['hdf5_file_path']
+		hdf5_file_path = hdf5_file_path.replace('.hdf5', f'_{config_summary}.hdf5')
+		# Extract metadata from source_path
+		parts = source_pkl_path.split(os.sep)
+		pose_name = parts[-2]
+		file_name = os.path.basename(source_pkl_path)
+		split = "train" if "train" in file_name else "test" if "test" in file_name else None
+		gender = "f" if "_f_" in file_name else "m" if "_m_" in file_name else None
+
+		if split is None or gender is None:
+			raise ValueError(f"Invalid source_path format: {source_pkl_path}")
+
+		# Define hierarchical storage path
+		group_path = f"{split}/{pose_name}/{gender}"
+
+		# Open HDF5 file in append mode
+		with h5py.File(hdf5_file_path, "a") as hdf5_file:
+			# Create group if not exists
+			if group_path not in hdf5_file:
+				hdf5_file.create_group(group_path)
+
+			# Function to append data safely
+			def append_data(dataset_name, new_data):
+				full_path = f"{group_path}/{dataset_name}"
+				if full_path in hdf5_file:
+					# Dataset exists → Extend dataset
+					dset = hdf5_file[full_path]
+					old_size = dset.shape[0]
+					new_size = old_size + new_data.shape[0]
+					dset.resize((new_size,) + dset.shape[1:])  # Expand first dimension
+					dset[old_size:new_size] = new_data  # Append new data
+				else:
+					# Create dataset with chunking and compression
+					max_shape = (None,) + new_data.shape[1:]  # Allow unlimited growth along first dimension
+					hdf5_file.create_dataset(name=full_path, data=new_data, maxshape=max_shape, chunks=True, compression="gzip", compression_opts=9)
+
+			# Append or create datasets
+			append_data("inputs", inputs)
+			append_data("labels", labels)
+
+		print(f"HDF5 data appended under: {group_path}")
 
 	def process_pressure_map(self, pressure_maps):
 		pressure_maps = np.clip(pressure_maps, 0, 100).reshape(-1, 64, 27)
@@ -211,17 +265,21 @@ class DataPreprocessor:
 		g2 = np.array([1 if '_m_' in file_path else 0] * len(file_data['images']))
 
 		# Process all data indices at once
-		inputs = self.load_input(file_data)
-		labels = self.load_label(file_data, g1, g2)
+		inputs = self.load_input(file_data).astype(np.float32)
+		labels = self.load_label(file_data, g1, g2).astype(np.float32)
 
-		print(f'Inputs: {inputs.shape} | Labels: {labels.shape}')
+		print(f'Inputs: {inputs.shape} | {inputs.dtype}')
+		print(f'Labels: {labels.shape} | {labels.dtype}')
 
 		# Save the preprocessed data
-		data_dict = {'inputs': inputs, 'labels': labels}
-		self.save_preprocessed_data(data_dict, file_path)
+		# data_dict = {'inputs': inputs, 'labels': labels}
+		# self.save_preprocessed_data(data_dict, file_path)
+
+		# Save the preprocessed data using HDF5 storage
+		self.save_data_as_hdf5(inputs, labels, source_pkl_path=file_path)
 
 		# Free memory explicitly
-		del inputs, labels, file_data, data_dict
+		del inputs, labels, file_data	# , data_dict
 		gc.collect()
 
 	def preprocess_data(self, file_paths, is_train=True):
@@ -246,6 +304,7 @@ if __name__ == '__main__':
 		'use_hover':				False,
 		'mod':						1,		# 1 or 2
 		'normalize_per_image':		True,
+		'hdf5_file_path':			'synthetic_data/pre_processed/preprocessed_mod1_float32.hdf5'
 	}
 
 	# Normalization standard deviations for each channel
