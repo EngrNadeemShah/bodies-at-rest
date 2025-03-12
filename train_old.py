@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import numpy as np
 import argparse
 import sys
-from datasets import HDF5Dataset
+from datasets import PressurePoseDataset
 from models import PressureNet
 from smpl_class import SMPLPreloader
 import smplx
@@ -116,6 +116,10 @@ def main():
     # 0. Initializations and Configurations
 	# 0.1. Parse the command line arguments
 	parser = argparse.ArgumentParser(description='Train PressureNet Model')
+	parser.add_argument('--add_noise', type=float, default=0, help='amount of noise to add, 0 means no noise')	# 0.1
+	parser.add_argument('--include_weight_height', action='store_true', default=False, help='include height and weight as input channels')
+	parser.add_argument('--omit_contact_sobel', action='store_true', default=False, help='omit contact sobel')
+	parser.add_argument('--use_hover', action='store_true', default=False, help='set depth_map_estimated_positive (channel 1) to 0')
 	parser.add_argument('--mod', type=int, choices=[1, 2], required=True, help='choose a network (1 or 2)')
 	parser.add_argument('--pmr', action='store_true', default=False, help='run PMR on input & precomputed spatial maps')
 	parser.add_argument('--verbose', action='store_true', default=False, help='verbose')
@@ -124,6 +128,10 @@ def main():
 
 	# 0.2. Set the configuration parameters
 	config = {
+		'add_noise':			args.add_noise,
+		'include_weight_height':args.include_weight_height,
+		'omit_contact_sobel':	args.omit_contact_sobel,
+		'use_hover':			args.use_hover,
 		'mod':					args.mod,
 		'pmr':					args.pmr,
 		'verbose':				args.verbose,
@@ -133,10 +141,28 @@ def main():
 		'batch_size':			512,
 		'num_epochs':			100,
 		'learning_rate':		0.00002,
+		'normalize_per_image':	True,
 		'half_betas_loss':		False,	# Halve the loss for betas
 		'use_root_loss':		False,	# Use the root rotation loss
 		'save_model_every':		10,
 	}
+
+	# 0.3. Normalization standard deviations for each channel
+	if config['normalize_per_image']:
+		config['normalize_std_dev'] = np.ones(10, dtype=np.float32)
+	else:
+		config['normalize_std_dev'] = np.array([
+			1 / 41.8068,	# contact
+			1 / 16.6955,	# pos est depth
+			1 / 45.0851,	# neg est depth
+			1 / 43.5580,	# cm est
+			1 / 11.7015,	# pressure map
+			1 / 45.6164 if config['add_noise'] else 1 / 29.8036,	# pressure map sobel
+			1,  # OUTPUT DO NOTHING
+			1,  # OUTPUT DO NOTHING
+			1 / 30.2166,  # weight
+			1 / 14.6293   # height
+		])
 
 	# 0.4. Check if CUDA is available
 	is_cuda_available = torch.cuda.is_available()
@@ -161,12 +187,22 @@ def main():
 
 
 	# 1. Data Preparation
+	# Define the path to the original train and test data (.pickle files)
+	if config['mod'] == 1:
+		train_files_dir = 'synthetic_data/original/train'
+		valid_files_dir = 'synthetic_data/original/test'
+	elif config['mod'] == 2:
+		train_files_dir = 'synthetic_data/by_mod1/a/train'
+		valid_files_dir = 'synthetic_data/by_mod1/a/test'
+
+	# Get the paths to the train and test data files
+	train_file_paths = retrieve_data_file_paths(train_files_dir)
+	valid_file_paths = retrieve_data_file_paths(valid_files_dir)
 
 	# Create the train and test datasets and data loaders
-	hdf5_file_path = 'synthetic_data/pre_processed/preprocessed_mod1_float32_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_1__normalize_per_image_True.hdf5'
-	train_dataset = HDF5Dataset(hdf5_file_path=hdf5_file_path, split='train')
-	valid_dataset = HDF5Dataset(hdf5_file_path=hdf5_file_path, split='test')
-	train_loader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, num_workers=config['num_workers'], pin_memory=config['pin_memory'])
+	train_dataset = PressurePoseDataset(file_paths=train_file_paths, config=config, is_train=True)
+	valid_dataset = PressurePoseDataset(file_paths=valid_file_paths, config=config, is_train=False)
+	train_loader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=False, num_workers=config['num_workers'], pin_memory=config['pin_memory'])
 	valid_loader = DataLoader(valid_dataset, batch_size=config['batch_size'], shuffle=False, num_workers=config['num_workers'], pin_memory=config['pin_memory'])
 
 	print(f"Number of Train Examples:		{len(train_dataset)}")
