@@ -161,10 +161,10 @@ class DataPreprocessor:
 		return np.where(pressure_maps != 0, 100.0 * self.config['normalize_std_dev'][0], 0)
 
 	def include_estimated_depth_contact_maps(self, file_data):
-		depth_map_estimated = file_data['mdm_est']
+		depth_map_estimated = np.array(file_data['mdm_est'])
 		depth_map_estimated_positive = np.maximum(depth_map_estimated, 0)
 		depth_map_estimated_negative = np.maximum(-depth_map_estimated, 0)
-		contact_map_estimated = file_data['cm_est'] * 100.0
+		contact_map_estimated = np.array(file_data['cm_est']) * 100.0
 		depth_map_estimated_positive *= self.config['normalize_std_dev'][1]
 		depth_map_estimated_negative *= self.config['normalize_std_dev'][2]
 		contact_map_estimated *= self.config['normalize_std_dev'][3]
@@ -173,16 +173,16 @@ class DataPreprocessor:
 		return depth_map_estimated_positive, depth_map_estimated_negative, contact_map_estimated
 
 	def include_depth_contact_maps(self, file_data):
-		depth_map = file_data['mesh_depth'].astype(np.float32)
-		contact_map = file_data['mesh_contact'].astype(np.float32)
+		depth_map = np.array(file_data['mesh_depth']).astype(np.float32)
+		contact_map = np.array(file_data['mesh_contact']).astype(np.float32)
 		depth_map *= self.config['normalize_std_dev'][6]
 		contact_map *= self.config['normalize_std_dev'][7]
 		return depth_map, contact_map
 
 	def include_height_weight(self, file_data):
-		weight = file_data['body_mass'] * self.config['normalize_std_dev'][8]
+		weight = np.array(file_data['body_mass']) * self.config['normalize_std_dev'][8]
 		weight_channel = np.full(shape=(len(file_data['body_mass']), 64, 27), fill_value=weight[:, None, None])
-		height = (file_data['body_height'] - 1.0) * 100 * self.config['normalize_std_dev'][9]
+		height = (np.array(file_data['body_height']) - 1.0) * 100 * self.config['normalize_std_dev'][9]
 		height_channel = np.full(shape=(len(file_data['body_height']), 64, 27), fill_value=height[:, None, None])
 		return weight_channel, height_channel
 
@@ -304,8 +304,10 @@ if __name__ == '__main__':
 		'use_hover':				False,
 		'mod':						1,		# 1 or 2
 		'normalize_per_image':		True,
-		'hdf5_file_path':			'synthetic_data/pre_processed/preprocessed_mod1_float32.hdf5'
+		'hdf5_file_path':			f'synthetic_data/pre_processed/preprocessed.hdf5'
 	}
+
+	config['hdf5_file_path'] = config['hdf5_file_path'].replace('.hdf5', f'_mod{config["mod"]}.hdf5')
 
 	# Normalization standard deviations for each channel
 	if config['normalize_per_image']:
