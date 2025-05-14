@@ -1,3 +1,49 @@
+# =============================================================================
+# Manual Installation Instructions for Environment Setup
+# =============================================================================
+# ▶ Environment and OpenDR Setup Notes:
+#
+# - This project uses a local Conda environment stored inside the project root
+#   directory as `.conda`, instead of using the default Conda envs location.
+#
+# - The OpenDR library must be installed manually due to compilation and
+#   compatibility issues (e.g., missing OSMesa libraries).
+#
+# ▶ 1. Create and install OpenDR manually:
+#
+# Navigate to your project directory (bodies-at-rest):
+#     cd /path/to/bodies-at-rest
+#
+# Clone the OpenDR repository inside this folder:
+#     git clone https://github.com/mattloper/opendr.git
+#     cd opendr
+#     git checkout v0.78
+#
+# Download OSMesa prebuilt libraries (required for offscreen rendering):
+#     cd opendr/contexts
+#     wget http://files.is.tue.mpg.de/mloper/opendr/osmesa/OSMesa.Linux.x86_64.zip
+#     unzip OSMesa.Linux.x86_64.zip
+#
+# Build and install OpenDR:
+#     cd ../..
+#     python setup.py build
+#     python setup.py install
+#
+# ▶ 2. Create the Conda environment:
+#
+# From inside the project root `bodies-at-rest`:
+#     conda env create --prefix ./.conda --file requirements.yaml
+#
+# ▶ 3. Activate the environment:
+#
+#     conda activate ./.conda
+#
+# Note:
+# - Do NOT uncomment `opendr==0.78` in the pip section of the YAML file.
+# - The `.conda/` environment will reside at: `/path/to/bodies-at-rest/.conda`
+# - It is recommended to keep both the repo and the `.conda` environment together for portability.
+# =============================================================================
+
 name: /home/nadeemshah/coding/bodies-at-rest/.conda
 channels:
   - pytorch
@@ -223,7 +269,7 @@ dependencies:
       - open3d-python==0.3.0.0
       - opencv-contrib-python-headless==4.10.0.84
       - opencv-python==4.10.0.84
-      - opendr==0.78
+      # - opendr==0.78
       - pyglet==2.0.17
       - pyopengl==3.1.0
       - pyrender==0.1.45
