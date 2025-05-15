@@ -11,7 +11,8 @@ import matplotlib as mpl
 import h5py
 mpl.rcParams['text.usetex'] = False  # Disable LaTeX rendering
 mpl.rcParams['font.family'] = 'DejaVu Sans'  # Set default font family
-mpl.use('TkAgg')
+mpl.use('Agg')
+# mpl.use('TkAgg')
 
 def load_pickle(file_path):
 	with open(file_path, 'rb') as f:

@@ -153,7 +153,8 @@ def main():
 		print("CUDA is not available, using CPU.")
 
 	# Set the number of workers and pin memory based on the device
-	config['num_workers'] = os.cpu_count() - 2
+	# config['num_workers'] = os.cpu_count() - 2
+	config['num_workers'] = 16
 	config['pin_memory'] = device.type == 'cuda'
 	config['persistent_workers'] = True
 
@@ -165,7 +166,8 @@ def main():
 	# 1. Data Preparation
 
 	# Create the train and test datasets and data loaders
-	hdf5_file_path = 'synthetic_data/pre_processed/preprocessed_mod1_float32_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_1__normalize_per_image_True.hdf5'
+	# hdf5_file_path = 'synthetic_data/pre_processed/preprocessed_mod1_float32_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_1__normalize_per_image_True.hdf5'
+	hdf5_file_path = '../../scratch/pre_processed/preprocessed_mod1_float32_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_1__normalize_per_image_True.hdf5'
 	train_dataset = HDF5Dataset(hdf5_file_path=hdf5_file_path, split='train')
 	valid_dataset = HDF5Dataset(hdf5_file_path=hdf5_file_path, split='test')
 	train_loader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, num_workers=config['num_workers'], pin_memory=config['pin_memory'], persistent_workers=config['persistent_workers'])
