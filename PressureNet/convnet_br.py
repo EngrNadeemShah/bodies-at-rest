@@ -361,12 +361,15 @@ class CNN(nn.Module):
 
         if CTRL_PNL['depth_map_output'] == True:
             # break things up into sub batches and pass through the mesh
-            num_normal_sub_batches = current_batch_size / self.meshDepthLib.N
-            if current_batch_size % self.meshDepthLib.N != 0:
-                sub_batch_incr_list = num_normal_sub_batches * [self.meshDepthLib.N] + [
-                    current_batch_size % self.meshDepthLib.N]
-            else:
-                sub_batch_incr_list = num_normal_sub_batches * [self.meshDepthLib.N]
+            # Compute how many full-sized sub-batches we can have
+            num_normal_sub_batches = current_batch_size // self.meshDepthLib.N
+            remainder = current_batch_size % self.meshDepthLib.N
+
+            # Build the list of sub-batch sizes
+            sub_batch_incr_list = [self.meshDepthLib.N] * num_normal_sub_batches
+            if remainder:
+                sub_batch_incr_list.append(remainder)
+
             start_incr, end_incr = 0, 0
 
             #print len(sub_batch_incr_list), current_batch_size
