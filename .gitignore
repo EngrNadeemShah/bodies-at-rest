@@ -25,3 +25,5 @@ env/
 ### By ChatGPT ENDS HERE ###
 
 data_BR/
+.conda/
+x_rough.ipynb
