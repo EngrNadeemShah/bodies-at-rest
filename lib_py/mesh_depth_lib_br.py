@@ -204,6 +204,7 @@ class MeshDepthLib():
                     batch_sub_divider = 1
 
                 self.N = batch_size / batch_sub_divider
+                self.N = int(round(self.N))
                 self.shapedirs_f = self.shapedirs_f.unsqueeze(0).repeat(self.N, 1, 1, 1).permute(0, 2, 1, 3).unsqueeze(
                     0)
                 self.shapedirs_m = self.shapedirs_m.unsqueeze(0).repeat(self.N, 1, 1, 1).permute(0, 2, 1, 3).unsqueeze(
@@ -323,6 +324,7 @@ class MeshDepthLib():
 
                 # print batch_size
                 self.N = batch_size
+                self.N = int(round(self.N))
                 self.shapedirs_repeat_f = self.shapedirs_f.unsqueeze(0).repeat(self.N, 1, 1, 1).permute(0, 2, 1,
                                                                                                         3).unsqueeze(0)
                 self.shapedirs_repeat_m = self.shapedirs_m.unsqueeze(0).repeat(self.N, 1, 1, 1).permute(0, 2, 1,
