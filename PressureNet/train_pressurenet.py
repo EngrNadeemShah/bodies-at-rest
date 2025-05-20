@@ -58,12 +58,15 @@ NUMOFOUTPUTNODES_TRAIN = 24
 NUMOFOUTPUTNODES_TEST = 10
 INTER_SENSOR_DISTANCE = 0.0286  # metres
 
-torch.set_num_threads(1)
+torch.set_num_threads(8)    # changed from 1 to 8 by nashah
 if torch.cuda.is_available():
     # Use for GPU
     GPU = True
     dtype = torch.cuda.FloatTensor
     print('######################### CUDA is available! #############################')
+    print(f"GPU Name:           {torch.cuda.get_device_name(0)}")
+    print(f"Device Count:       {torch.cuda.device_count()}")
+    print(f"Current Device:     {torch.cuda.current_device()}")
 else:
     # Use for CPU
     GPU = False
@@ -88,7 +91,7 @@ class PhysicalTrainer():
         self.CTRL_PNL['verbose'] = opt.verbose
         self.opt = opt
         self.CTRL_PNL['batch_size'] = 128
-        self.CTRL_PNL['num_epochs'] = 100
+        self.CTRL_PNL['num_epochs'] = 1     # 100
         self.CTRL_PNL['incl_inter'] = True
         self.CTRL_PNL['shuffle'] = True
         self.CTRL_PNL['incl_ht_wt_channels'] = opt.htwt
@@ -124,6 +127,7 @@ class PhysicalTrainer():
         self.CTRL_PNL['cal_noise_amt'] = 0.2
         self.CTRL_PNL['double_network_size'] = False
         self.CTRL_PNL['first_pass'] = True
+        self.CTRL_PNL['num_workers'] = 0
 
         if GPU == True:
             torch.cuda.set_device(self.opt.device)
@@ -169,7 +173,8 @@ class PhysicalTrainer():
                 self.CTRL_PNL['norm_std_coeffs'][i] += 1.
 
 
-        self.CTRL_PNL['convnet_fp_prefix'] = '../data_BR/convnets/'
+        # self.CTRL_PNL['convnet_fp_prefix'] = '../data_BR/convnets/'
+        self.CTRL_PNL['convnet_fp_prefix'] = '../scratch/data/data_BR/convnets/'
 
         if self.CTRL_PNL['depth_map_output'] == True: #we need all the vertices if we're going to regress the depth maps
             self.verts_list = "all"
@@ -387,12 +392,30 @@ class PhysicalTrainer():
     def init_convnet_train(self):
 
         self.train_dataset = torch.utils.data.TensorDataset(self.train_x_tensor, self.train_y_tensor)
-        self.train_loader = torch.utils.data.DataLoader(self.train_dataset, self.CTRL_PNL['batch_size'], shuffle=self.CTRL_PNL['shuffle'])
+        # self.train_loader = torch.utils.data.DataLoader(self.train_dataset, self.CTRL_PNL['batch_size'], shuffle=self.CTRL_PNL['shuffle'])
+        self.train_loader = torch.utils.data.DataLoader(
+            self.train_dataset,
+            batch_size=self.CTRL_PNL['batch_size'],
+            shuffle=self.CTRL_PNL['shuffle'],
+            num_workers=self.CTRL_PNL['num_workers'],
+            pin_memory=self.CTRL_PNL['GPU']  # recommended if using GPU
+        )
+
 
         self.test_dataset = torch.utils.data.TensorDataset(self.test_x_tensor, self.test_y_tensor)
-        self.test_loader = torch.utils.data.DataLoader(self.test_dataset, self.CTRL_PNL['batch_size'], shuffle=self.CTRL_PNL['shuffle'])
+        # self.test_loader = torch.utils.data.DataLoader(self.test_dataset, self.CTRL_PNL['batch_size'], shuffle=self.CTRL_PNL['shuffle'])
+        self.test_loader = torch.utils.data.DataLoader(
+            self.test_dataset,
+            batch_size=self.CTRL_PNL['batch_size'],
+            shuffle=self.CTRL_PNL['shuffle'],
+            num_workers=self.CTRL_PNL['num_workers'],
+            pin_memory=self.CTRL_PNL['GPU']  # recommended if using GPU
+        )
 
-
+        print(f"📌 PyTorch set to use {torch.get_num_threads()} internal CPU threads")
+        print(f"📌 Train DataLoader using {self.train_loader.num_workers} worker threads")
+        print(f"📌 Test DataLoader using {self.test_loader.num_workers} worker threads")
+        print(f"🖥️ CPU cores available to this job: {len(os.sched_getaffinity(0))}")
 
         print("Loading convnet model................................")
 
@@ -807,7 +830,8 @@ if __name__ == "__main__":
     opt, args = p.parse_args()
 
     if opt.hd == False:
-        data_fp_prefix = "../data_BR/"
+        # data_fp_prefix = "../data_BR/"
+        data_fp_prefix = "../../../scratch/data/data_BR/"
     else:
         data_fp_prefix = "/media/henry/multimodal_data_2/data_BR/"
 
