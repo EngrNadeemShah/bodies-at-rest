@@ -1,4 +1,10 @@
 #!/usr/bin/env python
+# Logging libraries
+import logging
+import datetime
+import psutil
+from logging.handlers import RotatingFileHandler
+
 import sys
 import os
 import time
@@ -23,6 +29,20 @@ import convnet_br as convnet
 # import hrl_lib.util as ut
 import pickle as pickle
 
+# Define a function to set up the logger
+def setup_logger(log_file='training.log'):
+    logger = logging.getLogger('train')
+    logger.setLevel(logging.INFO)
+    # Rotate at 10 MB, keep 5 backups
+    handler = RotatingFileHandler(log_file, maxBytes=10*1024*1024, backupCount=5)
+    fmt = logging.Formatter('%(asctime)s %(levelname)s: %(message)s',
+                            datefmt='%Y-%m-%d %H:%M:%S')
+    handler.setFormatter(fmt)
+    handler.setLevel(logging.INFO)
+    logger.addHandler(handler)
+    # ensure flush on every record
+    # handler.flush = True
+    return logger
 
 # from hrl_lib.util import load_pickle
 def load_pickle(filename):
@@ -466,31 +486,51 @@ class PhysicalTrainer():
 
         self.optimizer = optim.Adam(self.model.parameters(), lr=learning_rate, weight_decay=0.0005) #start with .00005
 
-        # train the model one epoch at a time
-        for epoch in range(1, self.CTRL_PNL['num_epochs'] + 1):
-            #torch.save(self.model, self.CTRL_PNL['convnet_fp_prefix']+'convnet'+self.save_name+'_'+str(epoch)+'e'+'_'+str(learning_rate)+'lr.pt')
+        self.total_batches   = len(self.train_loader)
+        self.total_examples  = len(self.train_dataset)
+        self.examples_done   = 0
 
-            self.t1 = time.time()
-            self.train_convnet(epoch)
+        try:
+            # train the model one epoch at a time
+            for epoch in range(1, self.CTRL_PNL['num_epochs'] + 1):
+                epoch_start = time.time()
+                #torch.save(self.model, self.CTRL_PNL['convnet_fp_prefix']+'convnet'+self.save_name+'_'+str(epoch)+'e'+'_'+str(learning_rate)+'lr.pt')
 
-            try:
-                self.t2 = time.time() - self.t1
-            except:
-                self.t2 = 0
-            print('Time taken by epoch',epoch,':',self.t2,' seconds')
+                self.t1 = time.time()
+                self.train_convnet(epoch)
 
-            if epoch == self.CTRL_PNL['num_epochs'] or epoch == 10 or epoch == 20 or epoch == 30 or epoch == 40 or epoch == 50 or epoch == 60 or epoch == 70 or epoch == 80 or epoch == 90:
+                try:
+                    self.t2 = time.time() - self.t1
+                except:
+                    self.t2 = 0
+                print('Time taken by epoch',epoch,':',self.t2,' seconds')
 
-                if self.opt.go200 == True:
-                    epoch_log = epoch + 100
-                else:
-                    epoch_log = epoch + 0
+                if epoch == self.CTRL_PNL['num_epochs'] or epoch == 10 or epoch == 20 or epoch == 30 or epoch == 40 or epoch == 50 or epoch == 60 or epoch == 70 or epoch == 80 or epoch == 90:
 
-                print("saving convnet.")
-                torch.save(self.model, self.CTRL_PNL['convnet_fp_prefix']+'convnet'+self.save_name+'_'+str(epoch_log)+'e'+'_'+str(learning_rate)+'lr.pt')
-                print("saved convnet.")
-                pkl.dump(self.train_val_losses,open(self.CTRL_PNL['convnet_fp_prefix']+'convnet_losses'+self.save_name+'_'+str(epoch_log)+'e'+'_'+str(learning_rate)+'lr.p', 'wb'))
-                print("saved losses.")
+                    if self.opt.go200 == True:
+                        epoch_log = epoch + 100
+                    else:
+                        epoch_log = epoch + 0
+
+                    print("saving convnet.")
+                    torch.save(self.model, self.CTRL_PNL['convnet_fp_prefix']+'convnet'+self.save_name+'_'+str(epoch_log)+'e'+'_'+str(learning_rate)+'lr.pt')
+                    print("saved convnet.")
+                    pkl.dump(self.train_val_losses,open(self.CTRL_PNL['convnet_fp_prefix']+'convnet_losses'+self.save_name+'_'+str(epoch_log)+'e'+'_'+str(learning_rate)+'lr.p', 'wb'))
+                    print("saved losses.")
+
+                epoch_time = time.time() - epoch_start
+                logger.info(f"Epoch {epoch+1} completed in {epoch_time/60:.2f} min")
+
+        except KeyboardInterrupt:
+            logger.warning("Training interrupted by user (KeyboardInterrupt)")
+
+        finally:
+            # … end-time logging as before …
+            end_time = datetime.datetime.now()
+            elapsed   = end_time - start_time
+            logger.info(f"Training ended at {end_time:%Y-%m-%d %H:%M:%S}")
+            logger.info(f"Total elapsed time: {str(elapsed)}")
+
 
         print(self.train_val_losses, 'trainval')
         # Save the model (architecture and weights)
@@ -512,6 +552,7 @@ class PhysicalTrainer():
 
             # This will loop a total = training_images/batch_size times
             for batch_idx, batch in enumerate(self.train_loader):
+                batch_start = time.time()
 
 
                 self.optimizer.zero_grad()
@@ -682,6 +723,37 @@ class PhysicalTrainer():
                     self.train_val_losses['val_loss'].append(val_loss)
 
 
+                # get *actual* number of samples in this batch
+                if isinstance(batch, (list, tuple)):
+                    # e.g. (inputs, targets)
+                    batch_size_curr = batch[0].size(0)
+                else:
+                    # e.g. batch is a single tensor
+                    batch_size_curr = batch.size(0)
+
+                self.examples_done += batch_size_curr
+
+                # resource stats
+                cpu = psutil.cpu_percent(interval=None)
+                ram = psutil.virtual_memory().percent
+                if torch.cuda.is_available():
+                    gpu_used     = torch.cuda.memory_allocated() / 1024**3
+                    gpu_reserved = torch.cuda.memory_reserved()  / 1024**3
+                else:
+                    gpu_used = gpu_reserved = 0.0
+
+                batch_time = time.time() - batch_start
+
+                logger.info(
+                    f"Epoch {epoch+1}/{self.CTRL_PNL['num_epochs']} | "
+                    f"Batch {batch_idx}/{self.total_batches} | "
+                    f"Examples {self.examples_done}/{self.total_examples} | "
+                    f"Time {batch_time:.2f}s | "
+                    f"CPU {cpu:.1f}% | RAM {ram:.1f}% | "
+                    f"GPU_used {gpu_used:.2f} GB | GPU_reserved {gpu_reserved:.2f} GB"
+                )
+
+
     def validate_convnet(self, verbose=False, n_batches=None):
         self.model.eval()
         loss = 0.
@@ -767,6 +839,9 @@ class PhysicalTrainer():
 
 
 if __name__ == "__main__":
+
+    logger = setup_logger()
+    start_time = datetime.datetime.now()
 
     import optparse
     p = optparse.OptionParser()
@@ -889,6 +964,12 @@ if __name__ == "__main__":
     else:
         print("Please choose a valid network. You can specify '--net 1' or '--net 2'.")
         sys.exit()
+
+    logger.info(f"Training started | num_workers={opt.num_workers} | "
+                f"batch_size={opt.batch_size} | "
+                f"pin_memory={opt.pin_memory} | "
+                f"prefetch_factor={opt.prefetch_factor} | "
+                f"persistent_workers={opt.persistent_workers}")
 
     training_database_file_f = []
     training_database_file_m = []
