@@ -58,7 +58,9 @@ NUMOFOUTPUTNODES_TRAIN = 24
 NUMOFOUTPUTNODES_TEST = 10
 INTER_SENSOR_DISTANCE = 0.0286  # metres
 
-torch.set_num_threads(8)    # changed from 1 to 8 by nashah
+torch.set_num_threads(1)                    # avoid BLAS over-subscription in each worker
+torch.backends.cudnn.benchmark = True       # autotune your GPU kernels
+
 if torch.cuda.is_available():
     # Use for GPU
     GPU = True
@@ -90,7 +92,7 @@ class PhysicalTrainer():
         self.CTRL_PNL['loss_vector_type'] = opt.losstype
         self.CTRL_PNL['verbose'] = opt.verbose
         self.opt = opt
-        self.CTRL_PNL['batch_size'] = 128
+        self.CTRL_PNL['batch_size'] = opt.batch_size    # 128
         self.CTRL_PNL['num_epochs'] = 1     # 100
         self.CTRL_PNL['incl_inter'] = True
         self.CTRL_PNL['shuffle'] = True
@@ -127,7 +129,10 @@ class PhysicalTrainer():
         self.CTRL_PNL['cal_noise_amt'] = 0.2
         self.CTRL_PNL['double_network_size'] = False
         self.CTRL_PNL['first_pass'] = True
-        self.CTRL_PNL['num_workers'] = 0
+        self.CTRL_PNL['num_workers'] = opt.num_workers  # 0
+        self.CTRL_PNL['pin_memory'] = opt.pin_memory
+        self.CTRL_PNL['prefetch_factor'] = opt.prefetch_factor
+        self.CTRL_PNL['persistent_workers'] = opt.persistent_workers
 
         if GPU == True:
             torch.cuda.set_device(self.opt.device)
@@ -398,7 +403,9 @@ class PhysicalTrainer():
             batch_size=self.CTRL_PNL['batch_size'],
             shuffle=self.CTRL_PNL['shuffle'],
             num_workers=self.CTRL_PNL['num_workers'],
-            pin_memory=self.CTRL_PNL['GPU']  # recommended if using GPU
+            pin_memory=self.CTRL_PNL['pin_memory'],  # recommended if using GPU
+            prefetch_factor=self.CTRL_PNL['prefetch_factor'],  # default is 2
+            persistent_workers=self.CTRL_PNL['persistent_workers']  # keep workers alive across epochs
         )
 
 
@@ -407,9 +414,9 @@ class PhysicalTrainer():
         self.test_loader = torch.utils.data.DataLoader(
             self.test_dataset,
             batch_size=self.CTRL_PNL['batch_size'],
-            shuffle=self.CTRL_PNL['shuffle'],
-            num_workers=self.CTRL_PNL['num_workers'],
-            pin_memory=self.CTRL_PNL['GPU']  # recommended if using GPU
+            shuffle=False,
+            num_workers=0,
+            pin_memory=self.CTRL_PNL['pin_memory'],  # recommended if using GPU
         )
 
         print(f"📌 PyTorch set to use {torch.get_num_threads()} internal CPU threads")
@@ -826,6 +833,22 @@ if __name__ == "__main__":
 
     p.add_option('--log_interval', type=int, default=100, metavar='N',
                  help='number of batches between logging train status') #if you visualize too often it will slow down training.
+
+    p.add_option('--batch_size', type=int, default=128, metavar='N',
+                 help='input batch size for training (default: 128)')
+
+    p.add_option('--num_workers', type=int, default=0, metavar='N',
+                 help='number of workers for data loading (default: 0)')
+
+    p.add_option('--pin_memory', action='store_true', dest='pin_memory', default=False,
+                 help='Pin memory for data loading.')
+
+    p.add_option('--prefetch_factor', type=int, default=2, metavar='N',
+                 help='Number of batches to prefetch (default: 2)')
+
+    p.add_option('--persistent_workers', action='store_true', dest='persistent_workers', default=False,
+                 help='Persistent workers for data loading.')
+
 
     opt, args = p.parse_args()
 
