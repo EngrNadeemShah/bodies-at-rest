@@ -136,7 +136,16 @@ def main():
 		'learning_rate':		0.00002,
 		'half_betas_loss':		False,	# Halve the loss for betas
 		'use_root_loss':		False,	# Use the root rotation loss
-		'save_model_every':		10,
+		'save_model_every':		2,
+
+		# For DataLoader
+		'pin_memory':			True,	# the data loader will copy Tensors into device/CUDA pinned memory before returning them.
+		'num_workers_train':	0,		# how many subprocesses to use for data loading (default: 0)
+		'num_workers_valid':	0,		# use 0 for validation to avoid unnecessary overhead (os.cpu_count() - 2)
+		'prefetch_factor_train':None,		# no. of batches loaded in advance by each worker (default: 2 if num_workers > 0)
+		'prefetch_factor_valid':None,	# no. of batches loaded in advance by each worker (default: None if num_workers == 0)
+		'persistent_workers_train':	False,	# the data loader will not shut down the worker processes after a dataset has been consumed once.
+		'persistent_workers_valid':	False,	# this allows to maintain the workers Dataset instances alive (default: False)
 	}
 
 	# 0.4. Check if CUDA is available
@@ -152,26 +161,21 @@ def main():
 	else:
 		print("CUDA is not available, using CPU.")
 
-	# Set the number of workers and pin memory based on the device
-	# config['num_workers'] = os.cpu_count() - 2
-	config['num_workers'] = 16
-	config['pin_memory'] = device.type == 'cuda'
-	config['persistent_workers'] = True
-
-	# 0.5. Create the directories for saving the model and losses
-	os.makedirs('checkpoints', exist_ok=True)
-	os.makedirs('losses', exist_ok=True)
+	# 0.5. Create a unique directory using timestamp for saving the best model, and snapshots of model & losses
+	run_timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+	run_dir = f"runs/run_{run_timestamp}"
+	os.makedirs(run_dir, exist_ok=True)
 
 
 	# 1. Data Preparation
 
-	# Create the train and test datasets and data loaders
+	# Create the train and valid datasets and data loaders
 	# hdf5_file_path = 'synthetic_data/pre_processed/preprocessed_mod1_float32_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_1__normalize_per_image_True.hdf5'
-	hdf5_file_path = '../../scratch/pre_processed/preprocessed_mod1_float32_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_1__normalize_per_image_True.hdf5'
+	hdf5_file_path = '../../scratch/data/pre_processed/preprocessed_mod1_float32_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_1__normalize_per_image_True.hdf5'
 	train_dataset = HDF5Dataset(hdf5_file_path=hdf5_file_path, split='train')
 	valid_dataset = HDF5Dataset(hdf5_file_path=hdf5_file_path, split='test')
-	train_loader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, num_workers=config['num_workers'], pin_memory=config['pin_memory'], persistent_workers=config['persistent_workers'])
-	valid_loader = DataLoader(valid_dataset, batch_size=config['batch_size'], shuffle=False, num_workers=config['num_workers'], pin_memory=config['pin_memory'], persistent_workers=config['persistent_workers'])
+	train_loader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True,	num_workers=config['num_workers_train'], pin_memory=config['pin_memory'], prefetch_factor=config['prefetch_factor_train'], persistent_workers=config['persistent_workers_train'])
+	valid_loader = DataLoader(valid_dataset, batch_size=config['batch_size'], shuffle=False,num_workers=config['num_workers_valid'], pin_memory=config['pin_memory'], prefetch_factor=config['prefetch_factor_valid'], persistent_workers=config['persistent_workers_valid'])
 
 	print(f"Number of Train Examples:		{len(train_dataset)}")
 	print(f"Number of Valid Examples:		{len(valid_dataset)}")
@@ -179,8 +183,13 @@ def main():
 	print(f"Number of Valid Batches:		{len(valid_loader)}")
 	print(f"Batch Size:				{config['batch_size']}")
 	print(f"Number of Epochs:			{config['num_epochs']}")
-	print(f"num_workers:				{config['num_workers']}")
-	print(f"pin_memory:				{config['pin_memory']}")
+	print(f"num_workers (train):			{config['num_workers_train']}")
+	print(f"num_workers (valid):			{config['num_workers_valid']}")
+	print(f"prefetch_factor (train):		{config['prefetch_factor_train']}")
+	print(f"prefetch_factor (valid):		{config['prefetch_factor_valid']}")
+	print(f"persistent_workers (train):		{config['persistent_workers_train']}")
+	print(f"persistent_workers (valid):		{config['persistent_workers_valid']}")
+	print(f"pin_memory (both):			{config['pin_memory']}")
 
 
 	# 2. Define the model, optimizer, and loss functions
@@ -232,20 +241,20 @@ def main():
 			# Save best model
 			if valid_loss < best_valid_loss:
 				best_valid_loss = valid_loss
-				torch.save(model.state_dict(), 'checkpoints/best_model.pth')
+				best_model_path = os.path.join(run_dir, 'best_model.pth')
+				torch.save(model.state_dict(), best_model_path)
 				print("Best model saved!")
 
 			# Save the model and losses every 'save_model_every' epochs
 			if epoch % config['save_model_every'] == 0 or epoch == config['num_epochs']:
-				timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-				model_path = f'checkpoints/model_epoch_{epoch}_valid_loss_{valid_loss:.4f}_{timestamp}.pth'
-				torch.save(model.state_dict(), model_path)
-				print(f"Model saved at {model_path}")
+				checkpoint_model_path = os.path.join(run_dir, f'checkpoint_model__epoch_{epoch}__valid_loss_{valid_loss:.4f}.pth')
+				torch.save(model.state_dict(), checkpoint_model_path)
+				print(f"Checkpoint model saved at {checkpoint_model_path}")
 
-				losses_path = f"losses/losses_epoch_{epoch}_{timestamp}.p"
-				with open(losses_path, 'wb') as f:
+				checkpoint_losses_path = os.path.join(run_dir, f'checkpoint_losses__epoch_{epoch}__valid_loss_{valid_loss:.4f}.pkl')
+				with open(checkpoint_losses_path, 'wb') as f:
 					pkl.dump(train_valid_losses, f)
-				print(f"Losses saved at {losses_path}")
+				print(f"Checkpoint losses saved at {checkpoint_losses_path}")
 
 
 			# if config['verbose']:
