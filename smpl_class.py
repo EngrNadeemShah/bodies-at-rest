@@ -9,6 +9,7 @@ class SMPLPreloader:
 		self.batch_size = config['batch_size']
 		self.vertices = [1325, 336, 1032, 4515, 1374, 4848, 1739, 5209, 1960, 5423]
 		self.parents = np.array([-1, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 9, 9, 12, 13, 14, 16, 17, 18, 19, 20, 21])
+		self.config = config
 
 		# Load gender-dependent parameters
 		self.shapedirs_f_orig	= smpl_feml.shapedirs.permute(2, 0, 1).to(device)	# (10, 6890, 3)
@@ -27,8 +28,8 @@ class SMPLPreloader:
 		elif config['mod'] == 2:
 			self.posedirs_f_orig= smpl_feml.posedirs.view(-1, 6890, 3).to(device)	# (207, 6890, 3)
 			self.posedirs_m_orig= smpl_male.posedirs.view(-1, 6890, 3).to(device)	# (207, 6890, 3)
-			self.weights_f_orig	= smpl_feml.weights.to(device)	# (6890, 24)
-			self.weights_m_orig	= smpl_male.weights.to(device)	# (6890, 24)
+			self.weights_f_orig	= smpl_feml.lbs_weights.to(device)	# (6890, 24)
+			self.weights_m_orig	= smpl_male.lbs_weights.to(device)	# (6890, 24)
 		else:
 			raise ValueError("Invalid configuration for 'mod'. It must be either 1 or 2.")
 
@@ -101,10 +102,15 @@ class SMPLPreloader:
 			.squeeze(1).view(batch_size, BRD_shape[1], BRD_shape[2]) + v_template
 		)
 
-		# Extract vertices of interest
-		SMPL_pred_v_shaped_red = torch.stack([
-			SMPL_pred_v_shaped[:, vertex, :] for vertex in self.vertices
-		], dim=1)
+		# Extract 10 vertices of interest if mod == 1 or use all vertices if mod == 2
+		if self.config['mod'] == 1:
+			SMPL_pred_v_shaped_red = torch.stack([
+				SMPL_pred_v_shaped[:, vertex, :] for vertex in self.vertices
+			], dim=1)
+		elif self.config['mod'] == 2:
+			SMPL_pred_v_shaped_red = SMPL_pred_v_shaped
+		else:
+			raise ValueError("Invalid configuration for 'mod'. It must be either 1 or 2.")
 
 		# Compute the pose feature
 		predicted_label_angles_rot_mat_pose_feature = (
@@ -115,7 +121,7 @@ class SMPLPreloader:
 		# Compute the posed vertices
 		SMPL_pred_v_posed = (
 			torch.bmm(predicted_label_angles_rot_mat_pose_feature.unsqueeze(1), posedirs)
-			.view(-1, 10, BRD_shape[2]) + SMPL_pred_v_shaped_red
+			.view(-1, weights.shape[1], BRD_shape[2]) + SMPL_pred_v_shaped_red
 		)
 
 		# Compute joint locations in 3D
@@ -150,11 +156,11 @@ class SMPLPreloader:
 			SMPL_pred_v_homo[:, :, :3, 0] - SMPL_pred_J[:, 0:1, :] + predicted_label_root_xyz.unsqueeze(1)
 		)
 
-		# Adjust vertices based on joint addresses
-		SMPL_pred_verts_offset = SMPL_pred_verts.clone().detach()
-		predicted_label_markers_xyz_detached = predicted_label_markers_xyz.clone().detach()
-		synth_joint_addressed = torch.tensor([3, 15, 4, 5, 7, 8, 18, 19, 20, 21], device=self.device)
-		SMPL_pred_verts_offset -= predicted_label_markers_xyz_detached[:, synth_joint_addressed, :]
+		# # Adjust vertices based on joint addresses
+		# SMPL_pred_verts_offset = SMPL_pred_verts.clone().detach()
+		# predicted_label_markers_xyz_detached = predicted_label_markers_xyz.clone().detach()
+		# synth_joint_addressed = torch.tensor([3, 15, 4, 5, 7, 8, 18, 19, 20, 21], device=self.device)
+		# SMPL_pred_verts_offset -= predicted_label_markers_xyz_detached[:, synth_joint_addressed, :]
 
 		# Pad predicted labels to increase dimensions
 		predicted_labels = F.pad(predicted_labels, (0, 100))
