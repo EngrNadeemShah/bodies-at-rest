@@ -131,7 +131,7 @@ def main():
 		'use_relu':				args.use_relu,
 
 		# Not in args
-		'batch_size':			512,
+		'batch_size':			1024,
 		'num_epochs':			100,
 		'learning_rate':		0.00002,
 		'half_betas_loss':		False,	# Halve the loss for betas
@@ -140,11 +140,11 @@ def main():
 
 		# For DataLoader
 		'pin_memory':			True,	# the data loader will copy Tensors into device/CUDA pinned memory before returning them.
-		'num_workers_train':	0,		# how many subprocesses to use for data loading (default: 0)
+		'num_workers_train':	28,		# how many subprocesses to use for data loading (default: 0)
 		'num_workers_valid':	0,		# use 0 for validation to avoid unnecessary overhead (os.cpu_count() - 2)
-		'prefetch_factor_train':None,		# no. of batches loaded in advance by each worker (default: 2 if num_workers > 0)
+		'prefetch_factor_train':2,		# no. of batches loaded in advance by each worker (default: 2 if num_workers > 0)
 		'prefetch_factor_valid':None,	# no. of batches loaded in advance by each worker (default: None if num_workers == 0)
-		'persistent_workers_train':	False,	# the data loader will not shut down the worker processes after a dataset has been consumed once.
+		'persistent_workers_train':	True,	# the data loader will not shut down the worker processes after a dataset has been consumed once.
 		'persistent_workers_valid':	False,	# this allows to maintain the workers Dataset instances alive (default: False)
 	}
 
@@ -199,7 +199,7 @@ def main():
 	criterion2 = nn.MSELoss()
 
 	if config['verbose']:
-		print("Model Summary:")
+		print("\nModel Summary:")
 		print(model)
 		print()
 		summary(model, input_size=(config['batch_size'], train_dataset[0][0].shape[0], 128, 54), device=device.type)
