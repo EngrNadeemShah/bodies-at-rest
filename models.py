@@ -95,8 +95,8 @@ class PressureNet(nn.Module):
 			nn.Conv2d(in_channels, 192, kernel_size=7, stride=2, padding=3),	# (3, 128, 54) -> (192, 64, 27)
 			nn.ReLU(inplace=True) if use_relu else nn.Tanh(),					# (192, 64, 27)
 			nn.Dropout(p=0.1),
-			nn.MaxPool2d(3, stride=2),											# -> (192, 31, 13)
-			nn.Conv2d(192, 192, kernel_size=3, stride=1, padding=0),			# -> (192, 29, 11)
+			nn.MaxPool2d(3, stride=2),											# (192, 64, 27) -> (192, 31, 13)
+			nn.Conv2d(192, 192, kernel_size=3, stride=1, padding=0),			# (192, 31, 13) -> (192, 29, 11)
 			nn.ReLU(inplace=True) if use_relu else nn.Tanh(),					# (192, 29, 11)
 			nn.Dropout(p=0.1),
 			nn.Conv2d(192, 384, kernel_size=3, stride=1, padding=0),			# (192, 29, 11) -> (384, 27, 9)
