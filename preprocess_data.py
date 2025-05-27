@@ -21,18 +21,24 @@ def get_memory_usage():
     process = psutil.Process()
     return process.memory_info().rss / (1024 * 1024 * 1024) # in GB
 
+def generate_config_summary(config):
+	return '__'.join([
+		f'{k}_{v}' for k, v in config.items()
+		if k not in ('normalize_std_dev', 'hdf5_file_path')
+	])
+
 
 class DataPreprocessor:
 	def __init__(self, config):
 		self.config = config
+		self.config_summary = generate_config_summary(self.config)
 
-	def save_preprocessed_data(self, data_dict, source_path):
+	def save_data_as_pt(self, data_dict, source_path):
 		"""Save preprocessed data efficiently as PyTorch tensors."""
 
 		# timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-		config_summary = '__'.join([f'{key}_{value}' for key, value in self.config.items() if key != 'normalize_std_dev'])
 		source_path_parts = source_path.split('/')
-		destination_path = os.path.join(source_path_parts[0], 'pre_processed', source_path_parts[2], config_summary, *source_path_parts[3:]).replace('.p', '.pt')
+		destination_path = os.path.join(source_path_parts[0], 'pre_processed', source_path_parts[2], self.config_summary, *source_path_parts[3:]).replace('.p', '.pt')
 		os.makedirs(os.path.dirname(destination_path), exist_ok=True)
 
 		# Convert numpy arrays to torch tensors before saving
@@ -53,9 +59,8 @@ class DataPreprocessor:
 		- source_path (str): Original file path used to infer hierarchy.
 		"""
 
-		config_summary = '__'.join([f'{key}_{value}' for key, value in self.config.items() if key != 'normalize_std_dev' and key != 'hdf5_file_path'])
 		hdf5_file_path = self.config['hdf5_file_path']
-		hdf5_file_path = hdf5_file_path.replace('.hdf5', f'_{config_summary}.hdf5')
+		hdf5_file_path = hdf5_file_path.replace('.hdf5', f'_{self.config_summary}.hdf5')
 		# Extract metadata from source_path
 		parts = source_pkl_path.split(os.sep)
 		pose_name = parts[-2]
@@ -95,6 +100,37 @@ class DataPreprocessor:
 			append_data("labels", labels)
 
 		print(f"HDF5 data appended under: {group_path}")
+
+	def is_file_already_processed(self, source_pkl_path):
+		"""Check if the given .p file's data already exists in the HDF5 file and log the count."""
+		parts = source_pkl_path.split(os.sep)
+		pose_name = parts[-2]
+		file_name = os.path.basename(source_pkl_path)
+		split = "train" if "train" in file_name else "test" if "test" in file_name else None
+		gender = "f" if "_f_" in file_name else "m" if "_m_" in file_name else None
+
+		if split is None or gender is None:
+			return False
+
+		group_path = f"{split}/{pose_name}/{gender}"
+		hdf5_file_path = self.config['hdf5_file_path']
+		hdf5_file_path = hdf5_file_path.replace('.hdf5', f'_{self.config_summary}.hdf5')
+
+		if not os.path.exists(hdf5_file_path):
+			return False
+
+		with h5py.File(hdf5_file_path, "r") as hdf5_file:
+			if group_path in hdf5_file:
+				try:
+					num_in_file = len(load_pickle(source_pkl_path)['images'])
+					num_in_hdf5 = hdf5_file[group_path]['inputs'].shape[0]
+					print(f"🧾 {group_path}: HDF5 has {num_in_hdf5} / {num_in_file} samples", flush=True)
+					if num_in_file <= num_in_hdf5:
+						return True
+				except Exception as e:
+					print(f"⚠️ Error checking {group_path}: {e}", flush=True)
+					return False
+		return False
 
 	def process_pressure_map(self, pressure_maps):
 		pressure_maps = np.clip(pressure_maps, 0, 100).reshape(-1, 64, 27)
@@ -273,7 +309,7 @@ class DataPreprocessor:
 
 		# Save the preprocessed data
 		# data_dict = {'inputs': inputs, 'labels': labels}
-		# self.save_preprocessed_data(data_dict, file_path)
+		# self.save_data_as_pt(data_dict, file_path)
 
 		# Save the preprocessed data using HDF5 storage
 		self.save_data_as_hdf5(inputs, labels, source_pkl_path=file_path)
@@ -284,7 +320,17 @@ class DataPreprocessor:
 
 	def preprocess_data(self, file_paths, is_train=True):
 		self.is_train = is_train
+		processed_count = 0
+		skipped_count = 0
+
 		for i, file_path in enumerate(file_paths):
+			if self.is_file_already_processed(file_path):
+				skipped_count += 1
+				print(f'Skipping already processed file: {file_path}')
+				continue
+
+			processed_count += 1
+
 			# Measure time and memory usage
 			single_file_time = time()
 			mem_before = get_memory_usage()
@@ -294,6 +340,8 @@ class DataPreprocessor:
 			print(f'Time taken: {time() - single_file_time:.2f} seconds')
 			print(f'Memory usage: {mem_before:.2f} GB -> {get_memory_usage():.2f} GB \n')
 
+		print(f'Processed files: {processed_count}, Skipped files: {skipped_count}')
+
 
 if __name__ == '__main__':
 	start_time = time()
@@ -302,9 +350,9 @@ if __name__ == '__main__':
 		'include_weight_height':	False,
 		'omit_contact_sobel':		False,
 		'use_hover':				False,
-		'mod':						1,		# 1 or 2
+		'mod':						2,		# 1 or 2
 		'normalize_per_image':		True,
-		'hdf5_file_path':			f'synthetic_data/pre_processed/preprocessed.hdf5'
+		'hdf5_file_path':			os.path.join(os.environ['HOME'], 'scratch', 'data', 'pre_processed', 'preprocessed.hdf5')
 	}
 
 	config['hdf5_file_path'] = config['hdf5_file_path'].replace('.hdf5', f'_mod{config["mod"]}.hdf5')
@@ -328,11 +376,11 @@ if __name__ == '__main__':
 
 	# Define the path to the original train and test data (.pickle files)
 	if config['mod'] == 1:
-		train_files_dir = 'synthetic_data/original/mod1/train'
-		valid_files_dir = 'synthetic_data/original/mod1/test'
+		train_files_dir = os.path.join(os.environ['HOME'], 'scratch', 'data', 'original', 'mod1', 'train')
+		valid_files_dir = os.path.join(os.environ['HOME'], 'scratch', 'data', 'original', 'mod1', 'test')
 	elif config['mod'] == 2:
-		train_files_dir = 'synthetic_data/original/mod2/train'
-		valid_files_dir = 'synthetic_data/original/mod2/test'
+		train_files_dir = os.path.join(os.environ['HOME'], 'scratch', 'data', 'original', 'mod2', 'train')
+		valid_files_dir = os.path.join(os.environ['HOME'], 'scratch', 'data', 'original', 'mod2', 'test')
 
 	# Get the paths to the train and test data files
 	train_file_paths = retrieve_data_file_paths(train_files_dir)
