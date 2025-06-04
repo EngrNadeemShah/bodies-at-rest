@@ -114,9 +114,10 @@ class PressureNet(nn.Module):
 		)
 
 	def forward(self, x):
-		x = self.features(x)
-		x = torch.flatten(x, 1)
-		x = self.output_layer(x)
+		# Feature extraction
+		x = self.features(x)		# (B, in_channels, 128, 54) -> (B, 384, 25, 7)
+		x = torch.flatten(x, 1)		# (B, 384 * 25 * 7) -> (B, 67200)
+		x = self.output_layer(x)	# (B, 67200) -> (B, num_classes)
 
 		# 1. Post-processing transformations on predicted_labels:
 		# Scale adjustment
@@ -130,12 +131,21 @@ class PressureNet(nn.Module):
 
 		# Apply tanh normalization to betas
 		x[:, 0:10] = torch.tanh(x[:, 0:10] / 3) * 3
+		# For Betas SMPL expects ~[-3, 3]
+		# x[:, 0:10] = torch.tanh(x[:, 0:10]) * 3.0
 
 		# Offset adjustment for root/global joint (pelvis) location
 		x[:, 10:13] += torch.tensor([0.6, 1.2, 0.1], device=x.device)
 
 		# Converting Cartesian coordinates of the root/global joint (pelvis) location to axis-angle rotations
-		x[:, 19:22] = torch.atan2(
+		# x[:, 19:22] = torch.atan2(
+		# 	x[:, [16, 17, 18]],
+		# 	x[:, [13, 14, 15]]
+		# )
+
+		def safe_atan2(y, x, eps=1e-6):
+			return torch.atan2(y + eps * (y == 0).float(), x + eps * (x == 0).float())
+		x[:, 19:22] = safe_atan2(
 			x[:, [16, 17, 18]],
 			x[:, [13, 14, 15]]
 		)
