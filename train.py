@@ -22,22 +22,73 @@ from torchinfo import summary
 np.set_printoptions(threshold=sys.maxsize, precision=4, suppress=True)
 
 def train(model, train_loader, optimizer, criterion, device, config, smpl_preloader, epoch, scaler):
+	print(f"\nTraining ...")
+
 	model.train()
 	running_loss = 0.0
 	total_samples = 0
 
-	with tqdm(train_loader, desc=f"Training Epoch {epoch}/{config['num_epochs']}", unit="batch") as tepoch:
-		for train_batch_index, (inputs, true_labels) in enumerate(tepoch, 1):
+	# with tqdm(train_loader, desc=f"Training Epoch {epoch}/{config['num_epochs']}", unit="batch") as tepoch:
+	# 	for train_batch_index, (inputs, true_labels) in enumerate(tepoch, 1):
+	for train_batch_index, (inputs, true_labels) in enumerate(train_loader, 1):
+		print(f"Batch: {train_batch_index:02}/{len(train_loader):02}", end='\t')
+
+		inputs, true_labels = inputs.to(device), true_labels.to(device)
+		batch_size = inputs.shape[0]	# Get the actual batch size
+		total_samples += batch_size		# Keep track of the total number of samples
+
+		optimizer.zero_grad()	# Clear gradients
+
+		# Forward pass
+		with autocast(device_type=device.type):
+			predicted_labels = model(inputs)
+			predicted_labels = smpl_preloader.forward(predicted_labels, true_labels)
+
+			# Initialize a tensor of zeros with the same shape as predicted_labels
+			zeroed_labels = torch.zeros_like(predicted_labels, device=device, requires_grad=True)
+
+			# Calculate the losses
+			loss_root_rotation = criterion(predicted_labels[:, 10:16], zeroed_labels[:, 10:16]) if config['use_root_loss'] else 0.0
+			loss_eucl = criterion(predicted_labels[:, 16:40], zeroed_labels[:, 16:40])	# Euclidean loss for joint positions
+			loss_betas = criterion(predicted_labels[:, :10], zeroed_labels[:, :10])		# Loss for betas with optional halving
+			print(f"Root: {loss_root_rotation.item():.4f}", end='\t') if config['use_root_loss'] else None
+			print(f"Euclidean: {loss_eucl.item():.4f}", end='\t')
+			print(f"Betas: {loss_betas.item():.4f}", end='\t')
+			if config['half_betas_loss']:
+				loss_betas *= 0.5
+
+			# Combine the losses
+			loss = loss_root_rotation + loss_eucl + loss_betas if config['use_root_loss'] else loss_eucl + loss_betas
+			print(f"Total: {loss.item():.4f}", end='\t')
+
+			scaler.scale(loss).backward()
+			scaler.step(optimizer)
+			scaler.update()
+
+			loss *= 1000		# Apply scaling factor
+			running_loss += loss.item() * batch_size	# Accumulate loss
+			print(f"Running: {running_loss / total_samples:.4f}")
+
+			# Update tqdm description
+			# tepoch.set_postfix(loss=loss.item())
+	return running_loss / total_samples	# Average loss per sample
+
+def validate(model, valid_loader, criterion, device, config, smpl_preloader):
+	print(f"\nValidating ...")
+
+	running_loss = 0.0
+	total_samples = 0
+
+	model.eval()
+	with torch.no_grad():
+		# with tqdm(valid_loader, desc="Validating", unit="batch") as vepoch:
+		# 	for valid_batch_index, (inputs, true_labels) in enumerate(vepoch, 1):
+		for valid_batch_index, (inputs, true_labels) in enumerate(valid_loader, 1):
+			print(f"Batch: {valid_batch_index:02}/{len(valid_loader):02}", end='\t')
+
 			inputs, true_labels = inputs.to(device), true_labels.to(device)
 			batch_size = inputs.shape[0]	# Get the actual batch size
 			total_samples += batch_size		# Keep track of the total number of samples
-
-			# print(f"Train Batch Index:	{train_batch_index}")
-			# print(f"Train Inputs Shape:	{inputs.shape}")
-			# print(f"Train Labels Shape:	{true_labels.shape}")
-			# print()
-
-			optimizer.zero_grad()	# Clear gradients
 
 			# Forward pass
 			with autocast(device_type=device.type):
@@ -45,7 +96,7 @@ def train(model, train_loader, optimizer, criterion, device, config, smpl_preloa
 				predicted_labels = smpl_preloader.forward(predicted_labels, true_labels)
 
 				# Initialize a tensor of zeros with the same shape as predicted_labels
-				zeroed_labels = torch.zeros_like(predicted_labels, device=device, requires_grad=True)
+				zeroed_labels = torch.zeros_like(predicted_labels, device=device, requires_grad=False)
 
 				# Calculate the losses
 				loss_root_rotation = criterion(predicted_labels[:, 10:16], zeroed_labels[:, 10:16]) if config['use_root_loss'] else 0.0
@@ -57,61 +108,9 @@ def train(model, train_loader, optimizer, criterion, device, config, smpl_preloa
 				# Combine the losses
 				loss = loss_root_rotation + loss_eucl + loss_betas if config['use_root_loss'] else loss_eucl + loss_betas
 
-				scaler.scale(loss).backward()
-				scaler.step(optimizer)
-				scaler.update()
-
 				loss *= 1000		# Apply scaling factor
 				running_loss += loss.item() * batch_size	# Accumulate loss
-
-				# Update tqdm description
-				tepoch.set_postfix(loss=loss.item())
-		return running_loss / total_samples	# Average loss per sample
-
-			# if train_batch_index % 10 == 0:
-			# 	# print_error_summary(true_labels[:, :72], predicted_label_markers_xyz_detached)
-
-			# 	print(f"Train Epoch: {epoch} "
-			# 		f"[{train_batch_index * config['batch_size']}/{len(train_loader.dataset)} "
-			# 		f"({100.0 * train_batch_index / len(train_loader):.0f}%)]\n"
-			# 		f"\tEuclidean Loss for Joint Positions:	{1000 * loss_eucl.item():.2f}\n"
-			# 		f"\tBetas Loss:				{1000 * loss_betas.item():.2f}\n"
-			# 		f"\tBody/Root/Pelvis Rotation Loss:		{1000 * loss_root_rotation.item() if config['use_root_loss'] else 0.0:.2f}\n"
-			# 		f"\tTotal Loss:				{loss.item():.2f}\n")
-
-def validate(model, valid_loader, criterion, device, config, smpl_preloader):
-	running_loss = 0.0
-	total_samples = 0
-
-	model.eval()
-	with torch.no_grad():
-		with tqdm(valid_loader, desc="Validating", unit="batch") as vepoch:
-			for valid_batch_index, (inputs, true_labels) in enumerate(vepoch, 1):
-				inputs, true_labels = inputs.to(device), true_labels.to(device)
-				batch_size = inputs.shape[0]	# Get the actual batch size
-				total_samples += batch_size		# Keep track of the total number of samples
-
-				# Forward pass
-				with autocast(device_type=device.type):
-					predicted_labels = model(inputs)
-					predicted_labels = smpl_preloader.forward(predicted_labels, true_labels)
-
-					# Initialize a tensor of zeros with the same shape as predicted_labels
-					zeroed_labels = torch.zeros_like(predicted_labels, device=device, requires_grad=False)
-
-					# Calculate the losses
-					loss_root_rotation = criterion(predicted_labels[:, 10:16], zeroed_labels[:, 10:16]) if config['use_root_loss'] else 0.0
-					loss_eucl = criterion(predicted_labels[:, 16:40], zeroed_labels[:, 16:40])	# Euclidean loss for joint positions
-					loss_betas = criterion(predicted_labels[:, :10], zeroed_labels[:, :10])		# Loss for betas with optional halving
-					if config['half_betas_loss']:
-						loss_betas *= 0.5
-
-					# Combine the losses
-					loss = loss_root_rotation + loss_eucl + loss_betas if config['use_root_loss'] else loss_eucl + loss_betas
-
-					loss *= 1000		# Apply scaling factor
-					running_loss += loss.item() * batch_size	# Accumulate loss
-			return running_loss / total_samples		# Average loss per sample
+		return running_loss / total_samples		# Average loss per sample
 
 def main():
     # 0. Initializations and Configurations
@@ -177,6 +176,9 @@ def main():
 	train_loader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True,	num_workers=config['num_workers_train'], pin_memory=config['pin_memory'], prefetch_factor=config['prefetch_factor_train'], persistent_workers=config['persistent_workers_train'])
 	valid_loader = DataLoader(valid_dataset, batch_size=config['batch_size'], shuffle=False,num_workers=config['num_workers_valid'], pin_memory=config['pin_memory'], prefetch_factor=config['prefetch_factor_valid'], persistent_workers=config['persistent_workers_valid'])
 
+	print(f"Learning Rate:				{config['learning_rate']}")
+	print(f"Mod:					{config['mod']}")
+	print(f"PMR:					{config['pmr']}")
 	print(f"Number of Train Examples:		{len(train_dataset)}")
 	print(f"Number of Valid Examples:		{len(valid_dataset)}")
 	print(f"Number of Train Batches:		{len(train_loader)}")
@@ -223,42 +225,49 @@ def main():
 
 	scaler = GradScaler(device=device.type)
 
-	with tqdm(range(1, config['num_epochs'] + 1), desc="Epochs", unit="epoch") as epoch_progress:
-		for epoch in epoch_progress:
-			epoch_progress.set_description(f"Epoch {epoch}/{config['num_epochs']}")
+	# with tqdm(range(1, config['num_epochs'] + 1), desc="Epochs", unit="epoch") as epoch_progress:
+	# 	for epoch in epoch_progress:
+	# 		epoch_progress.set_description(f"Epoch {epoch}/{config['num_epochs']}")
+	for epoch in range(1, config['num_epochs'] + 1):
+		print(f"Epoch: {epoch:03d}/{config['num_epochs']:03d}")
+		print("*" * 50)
 
-			# Initialize preloader before training loop (once per epoch)
-			smpl_preloader = SMPLPreloader(smpl_male_model, smpl_feml_model, device, config)
+		# Initialize preloader before training loop (once per epoch)
+		smpl_preloader = SMPLPreloader(smpl_male_model, smpl_feml_model, device, config)
 
-			train_loss = train(model, train_loader, optimizer, criterion1, device, config, smpl_preloader, epoch, scaler)
-			valid_loss = validate(model, valid_loader, criterion1, device, config, smpl_preloader)
+		train_loss = train(model, train_loader, optimizer, criterion1, device, config, smpl_preloader, epoch, scaler)
+		print(f"Train Loss for Epoch {epoch:03d}: {train_loss:.4f}")
+		print("-" * 30)
+		valid_loss = validate(model, valid_loader, criterion1, device, config, smpl_preloader)
+		print(f"Valid Loss for Epoch {epoch:03d}: {valid_loss:.4f}")
+		print("=" * 30)
 
-			# Save the losses
-			train_valid_losses['epoch'].append(epoch)
-			train_valid_losses['train_loss'].append(train_loss)
-			train_valid_losses['valid_loss'].append(valid_loss)
+		# Save the losses
+		train_valid_losses['epoch'].append(epoch)
+		train_valid_losses['train_loss'].append(train_loss)
+		train_valid_losses['valid_loss'].append(valid_loss)
 
-			# Save best model
-			if valid_loss < best_valid_loss:
-				best_valid_loss = valid_loss
-				best_model_path = os.path.join(run_dir, 'best_model.pth')
-				torch.save(model.state_dict(), best_model_path)
-				print("Best model saved!")
+		# Save best model
+		if valid_loss < best_valid_loss:
+			best_valid_loss = valid_loss
+			best_model_path = os.path.join(run_dir, 'best_model.pth')
+			torch.save(model.state_dict(), best_model_path)
+			print("\nBest model saved!", end='\n\n')
 
-			# Save the model and losses every 'save_model_every' epochs
-			if epoch % config['save_model_every'] == 0 or epoch == config['num_epochs']:
-				checkpoint_model_path = os.path.join(run_dir, f'checkpoint_model__epoch_{epoch}__valid_loss_{valid_loss:.4f}.pth')
-				torch.save(model.state_dict(), checkpoint_model_path)
-				print(f"Checkpoint model saved at {checkpoint_model_path}")
+		# Save the model and losses every 'save_model_every' epochs
+		if epoch % config['save_model_every'] == 0 or epoch == config['num_epochs']:
+			checkpoint_model_path = os.path.join(run_dir, f'checkpoint_model__epoch_{epoch}__valid_loss_{valid_loss:.4f}.pth')
+			torch.save(model.state_dict(), checkpoint_model_path)
+			print(f"\nCheckpoint model saved at {checkpoint_model_path}")
 
-				checkpoint_losses_path = os.path.join(run_dir, f'checkpoint_losses__epoch_{epoch}__valid_loss_{valid_loss:.4f}.pkl')
-				with open(checkpoint_losses_path, 'wb') as f:
-					pkl.dump(train_valid_losses, f)
-				print(f"Checkpoint losses saved at {checkpoint_losses_path}")
+			checkpoint_losses_path = os.path.join(run_dir, f'checkpoint_losses__epoch_{epoch}__valid_loss_{valid_loss:.4f}.pkl')
+			with open(checkpoint_losses_path, 'wb') as f:
+				pkl.dump(train_valid_losses, f)
+			print(f"Checkpoint losses saved at {checkpoint_losses_path}", end='\n\n')
 
 
-			# if config['verbose']:
-			# 	plot_input_channels(inputs_batch, train_batch_idx)
+		# if config['verbose']:
+		# 	plot_input_channels(inputs_batch, train_batch_idx)
 
 	# # 7. Load Best Model for Final Testing
 	# best_model = PressureNet(in_channels=train_dataset[0][0].shape[0], num_classes=88, use_relu=config['use_relu']).to(device)
