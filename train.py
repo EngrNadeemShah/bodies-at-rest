@@ -13,16 +13,20 @@ import smplx
 from time import time
 from tqdm import tqdm
 import pickle as pkl
-from utils import print_error_summary, retrieve_data_file_paths, plot_input_channels
+from utils import print_error_summary, retrieve_data_file_paths, plot_input_channels, format_stats, print_mean_of_model_weights_and_gradients
 from datetime import datetime
 import os
 from torch.amp import GradScaler, autocast
 from torchinfo import summary
+from torch.utils.data import Subset
+import random
 
 np.set_printoptions(threshold=sys.maxsize, precision=4, suppress=True)
 
 def train(model, train_loader, optimizer, criterion, device, config, smpl_preloader, epoch, scaler):
+	# torch.autograd.set_detect_anomaly(True)
 	print(f"\nTraining ...")
+	# print_mean_of_model_weights_and_gradients(model, "Before Epoch Update")
 
 	model.train()
 	running_loss = 0.0
@@ -41,35 +45,48 @@ def train(model, train_loader, optimizer, criterion, device, config, smpl_preloa
 
 		# Forward pass
 		with autocast(device_type=device.type):
-			predicted_labels = model(inputs)
-			predicted_labels = smpl_preloader.forward(predicted_labels, true_labels)
+			predicted_labels = model(inputs)	# (B, 91)
 
-			# Initialize a tensor of zeros with the same shape as predicted_labels
-			zeroed_labels = torch.zeros_like(predicted_labels, device=device, requires_grad=True)
+			# Pass CNN model output through SMPL to get joint positions
+			predicted_joint_positions = smpl_preloader.smpl_forward(predicted_labels, true_labels)	# (B, 24, 3)
+			# # (Replace) Directly use predicted joints
+			# predicted_joint_positions = predicted_labels[:, :72].view(-1, 24, 3)
+
+			# Fetch the true joint positions from the true labels
+			true_joint_positions = true_labels[:, 0:72].view(-1, 24, 3)	# (B, 24, 3)
+			# # (Replace) Normalize target joints (min-max scaling or divide by a factor)
+			# true_joint_positions = true_labels[:, :72] / 1000.0
+			# true_joint_positions = true_joint_positions.view(-1, 24, 3)
+
+			# # Print the stats of predicted and true joint positions (for debugging)
+			# format_stats(predicted_joint_positions, "Pred Joint Positions")
+			# format_stats(true_joint_positions, "True Joint Positions")
 
 			# Calculate the losses
-			loss_root_rotation = criterion(predicted_labels[:, 10:16], zeroed_labels[:, 10:16]) if config['use_root_loss'] else 0.0
-			loss_eucl = criterion(predicted_labels[:, 16:40], zeroed_labels[:, 16:40])	# Euclidean loss for joint positions
-			loss_betas = criterion(predicted_labels[:, :10], zeroed_labels[:, :10])		# Loss for betas with optional halving
-			print(f"Root: {loss_root_rotation.item():.4f}", end='\t') if config['use_root_loss'] else None
-			print(f"Euclidean: {loss_eucl.item():.4f}", end='\t')
-			print(f"Betas: {loss_betas.item():.4f}", end='\t')
-			if config['half_betas_loss']:
-				loss_betas *= 0.5
+			joint_loss = criterion(predicted_joint_positions, true_joint_positions)
+
+			# Add parameter loss (optional)
+			param_loss = F.l1_loss(predicted_labels[:, 0:10], true_labels[:, 72:82]) \
+						+ F.l1_loss(predicted_labels[:, 10:13], true_labels[:, 154:157]) \
+						+ F.l1_loss(predicted_labels[:, 22:91], true_labels[:, 85:154])
 
 			# Combine the losses
-			loss = loss_root_rotation + loss_eucl + loss_betas if config['use_root_loss'] else loss_eucl + loss_betas
-			print(f"Total: {loss.item():.4f}", end='\t')
+			total_loss = joint_loss + config.get('w_param', 0.1) * param_loss
+			# total_loss = joint_loss
 
-			scaler.scale(loss).backward()
-			scaler.step(optimizer)
-			scaler.update()
+		# Backward pass and optimization (Outside the autocast context)
+		scaler.scale(total_loss).backward()
+		scaler.step(optimizer)
+		scaler.update()
 
-			loss *= 1000		# Apply scaling factor
-			running_loss += loss.item() * batch_size	# Accumulate loss
-			print(f"Running: {running_loss / total_samples:.4f}")
+		running_loss += total_loss.item() * batch_size	# Accumulate loss
 
-			# Update tqdm description
+		# Logging after computation to avoid issues with mixed precision
+		print(f"Joint: {joint_loss.item():.4f}", end='\t')
+		print(f"Parameter: {param_loss.item():.4f}", end='\t')
+		print(f"Total: {total_loss.item():.4f}", end='\t')
+		print(f"Running: {running_loss / total_samples:.4f}")
+	print_mean_of_model_weights_and_gradients(model, "After Epoch Update")
 			# tepoch.set_postfix(loss=loss.item())
 	return running_loss / total_samples	# Average loss per sample
 
@@ -93,24 +110,32 @@ def validate(model, valid_loader, criterion, device, config, smpl_preloader):
 			# Forward pass
 			with autocast(device_type=device.type):
 				predicted_labels = model(inputs)
-				predicted_labels = smpl_preloader.forward(predicted_labels, true_labels)
 
-				# Initialize a tensor of zeros with the same shape as predicted_labels
-				zeroed_labels = torch.zeros_like(predicted_labels, device=device, requires_grad=False)
+				# Pass CNN model output through SMPL to get joint positions
+				predicted_joint_positions = smpl_preloader.smpl_forward(predicted_labels, true_labels)
+				# # (Replace) Directly use predicted joints
+				# predicted_joint_positions = predicted_labels[:, :72].view(-1, 24, 3)
+
+				# Fetch the true joint positions from the true labels
+				true_joint_positions = true_labels[:, 0:72].view(-1, 24, 3)
+
+				# # (Replace) Normalize target joints (min-max scaling or divide by a factor)
+				# true_joint_positions = true_labels[:, :72] / 1000.0
+				# true_joint_positions = true_joint_positions.view(-1, 24, 3)
+
+				# format_stats(predicted_joint_positions, "Pred Joint Positions")
+				# format_stats(true_joint_positions, "True Joint Positions")
 
 				# Calculate the losses
-				loss_root_rotation = criterion(predicted_labels[:, 10:16], zeroed_labels[:, 10:16]) if config['use_root_loss'] else 0.0
-				loss_eucl = criterion(predicted_labels[:, 16:40], zeroed_labels[:, 16:40])	# Euclidean loss for joint positions
-				loss_betas = criterion(predicted_labels[:, :10], zeroed_labels[:, :10])		# Loss for betas with optional halving
-				if config['half_betas_loss']:
-					loss_betas *= 0.5
+				joint_loss = criterion(predicted_joint_positions, true_joint_positions)
 
-				# Combine the losses
-				loss = loss_root_rotation + loss_eucl + loss_betas if config['use_root_loss'] else loss_eucl + loss_betas
+				# Optional param loss (we usually omit this in validation)
+				total_loss = joint_loss
 
-				loss *= 1000		# Apply scaling factor
-				running_loss += loss.item() * batch_size	# Accumulate loss
-		return running_loss / total_samples		# Average loss per sample
+			running_loss += total_loss.item() * batch_size	# Accumulate loss
+			print(f"Joint: {joint_loss.item():.4f}", end='\t')
+			print(f"Running: {running_loss / total_samples:.4f}")
+	return running_loss / total_samples		# Average loss per sample
 
 def main():
     # 0. Initializations and Configurations
@@ -130,21 +155,22 @@ def main():
 		'use_relu':				args.use_relu,
 
 		# Not in args
-		'batch_size':			1024,
-		'num_epochs':			100,
-		'learning_rate':		0.00002,
+		'batch_size':			3000,
+		'num_epochs':			5,
+		'learning_rate':		0.0001,	# 0.00002
 		'half_betas_loss':		False,	# Halve the loss for betas
 		'use_root_loss':		False,	# Use the root rotation loss
 		'save_model_every':		2,
+		'w_param':				0.2,	# Weight for parameter-level supervision
 
 		# For DataLoader
 		'pin_memory':			True,	# the data loader will copy Tensors into device/CUDA pinned memory before returning them.
 		'num_workers_train':	28,		# how many subprocesses to use for data loading (default: 0)
-		'num_workers_valid':	0,		# use 0 for validation to avoid unnecessary overhead (os.cpu_count() - 2)
+		'num_workers_valid':	28,		# use 0 for validation to avoid unnecessary overhead (os.cpu_count() - 2)
 		'prefetch_factor_train':2,		# no. of batches loaded in advance by each worker (default: 2 if num_workers > 0)
-		'prefetch_factor_valid':None,	# no. of batches loaded in advance by each worker (default: None if num_workers == 0)
+		'prefetch_factor_valid':2,	# no. of batches loaded in advance by each worker (default: None if num_workers == 0)
 		'persistent_workers_train':	True,	# the data loader will not shut down the worker processes after a dataset has been consumed once.
-		'persistent_workers_valid':	False,	# this allows to maintain the workers Dataset instances alive (default: False)
+		'persistent_workers_valid':	True,	# this allows to maintain the workers Dataset instances alive (default: False)
 	}
 
 	# 0.4. Check if CUDA is available
@@ -173,7 +199,17 @@ def main():
 	hdf5_file_path = '../../scratch/data/pre_processed/preprocessed_mod1_float32_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_1__normalize_per_image_True.hdf5'
 	train_dataset = HDF5Dataset(hdf5_file_path=hdf5_file_path, split='train')
 	valid_dataset = HDF5Dataset(hdf5_file_path=hdf5_file_path, split='test')
-	train_loader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True,	num_workers=config['num_workers_train'], pin_memory=config['pin_memory'], prefetch_factor=config['prefetch_factor_train'], persistent_workers=config['persistent_workers_train'])
+
+	# # Limit to small number of samples (e.g., 3000 for training, 1000 for validation)
+	# # train_indices = random.sample(range(len(train_dataset)), k=min(3000, len(train_dataset)))
+	# # valid_indices = random.sample(range(len(valid_dataset)), k=min(1000, len(valid_dataset)))
+	# train_indices = list(range(min(3000, len(train_dataset))))
+	# valid_indices = list(range(min(1000, len(valid_dataset))))
+
+	# train_dataset = Subset(train_dataset, train_indices)
+	# valid_dataset = Subset(valid_dataset, valid_indices)
+
+	train_loader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=False,	num_workers=config['num_workers_train'], pin_memory=config['pin_memory'], prefetch_factor=config['prefetch_factor_train'], persistent_workers=config['persistent_workers_train'])
 	valid_loader = DataLoader(valid_dataset, batch_size=config['batch_size'], shuffle=False,num_workers=config['num_workers_valid'], pin_memory=config['pin_memory'], prefetch_factor=config['prefetch_factor_valid'], persistent_workers=config['persistent_workers_valid'])
 
 	print(f"Learning Rate:				{config['learning_rate']}")

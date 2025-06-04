@@ -169,3 +169,63 @@ def plot_input_channels(inputs_batch, batch_idx):
 	fig.suptitle(f'Batch Index: {batch_idx + 1}', fontsize=16)
 	plt.tight_layout()
 	plt.show()
+
+def log_tensor_mean_std_by_dim(name, tensor, dims=(0,), limit=24):
+	"""
+	Logs per-dimension mean and std in the format: mean (std)
+
+	Args:
+	- name: Name of the tensor
+	- tensor: PyTorch tensor
+	- dims: Dimensions to reduce over (e.g., batch)
+	- limit: Max number of elements to display
+	"""
+	if not isinstance(tensor, torch.Tensor):
+		print(f"{name}: [Not a tensor]")
+		return
+
+	shape = tuple(tensor.shape)
+	print(f"\n🔹 {name} — shape: {shape}, reduced over dims={dims}")
+
+	# Compute mean and std over dims
+	mean = tensor.mean(dim=dims)
+	std = tensor.std(dim=dims)
+
+	# If it's 1D (like C,)
+	if mean.ndim == 1:
+		mean_np = mean.cpu().numpy()
+		std_np = std.cpu().numpy()
+		for i in range(min(len(mean_np), limit)):
+			print(f"   [{i:02d}] {mean_np[i]:+.4f} ({std_np[i]:.4f})")
+		if len(mean_np) > limit:
+			print("   ...")
+
+	# If it's 2D (like joints × coords)
+	elif mean.ndim == 2:
+		mean_np = mean.cpu().numpy()
+		std_np = std.cpu().numpy()
+		for i in range(min(mean_np.shape[0], limit)):
+			line = "   [{:02d}] ".format(i)
+			line += ", ".join(f"{m:+.4f} ({s:.4f})" for m, s in zip(mean_np[i], std_np[i]))
+			print(line)
+
+	else:
+		print("   [Too high-dimensional to display]")
+
+def format_stats(tensor, name):
+	min_val = tensor.min().item()
+	max_val = tensor.max().item()
+	mean_val = tensor.mean().item()
+	std_val = tensor.std().item()
+	def fmt(x):
+	# Format: always show sign, (if :+010.2f)pad to width 8, 2 decimals, leading zeros
+	# Example: +002500.42, -000001.65
+		return f"{x:+06.2f}"
+	print(f"{name} -> min: {fmt(min_val)}, max: {fmt(max_val)}, mean: {fmt(mean_val)}, std: {fmt(std_val)}")
+
+def print_mean_of_model_weights_and_gradients(model, message="Model Parameters and Gradients (Mean)"):
+	"""Prints the mean of model parameters and their gradients."""
+	print(f"\n--- {message} ---")
+	for name, param in model.named_parameters():
+		if param.requires_grad:
+			print(f"{name}:\tmean={param.data.mean():.6f}, grad={param.grad.mean().item() if param.grad is not None else 'None'}")
