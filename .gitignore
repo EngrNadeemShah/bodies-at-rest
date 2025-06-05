@@ -32,3 +32,6 @@ venv/
 x_rough.ipynb
 
 synthetic_data/
+
+# Images and videos
+*.png

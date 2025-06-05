@@ -270,7 +270,8 @@ dependencies:
       - opencv-contrib-python-headless==4.10.0.84
       - opencv-python==4.10.0.84
       # - opendr==0.78
-      - pyglet==2.0.17
+      - pyglet==2.0.17    # On 04.06.2025 downgraded from 2.0.17 to 1.5.31 using pip install "pyglet<2.0" so that it works with trimesh on headless systems e.g. HPCs
+                          # Reinstalled 2.1.6 as without even cannot import trimesh
       - pyopengl==3.1.0
       - pyrender==0.1.45
       - pyrr==0.10.3
