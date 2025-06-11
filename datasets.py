@@ -211,16 +211,18 @@ class PressurePoseDataset(Dataset):
 		return torch.from_numpy(input_x).to(torch.float32), torch.from_numpy(label_y).to(torch.float32)
 
 class HDF5Dataset(Dataset):
-    def __init__(self, hdf5_file_path, split='train', transform=None):
+    def __init__(self, hdf5_file_path, split='train', transform=None, verbose=False):
         """
         Args:
             hdf5_file_path (str): Path to the HDF5 file.
             split (str): 'train' or 'test' to load the respective dataset.
             transform (callable, optional): Optional transform to apply to inputs.
+            verbose (bool): If True, print additional information about the dataset.
         """
         self.hdf5_file_path = hdf5_file_path
         self.split = split
         self.transform = transform
+        self.verbose = verbose
         
         # Open the file to get keys
         with h5py.File(self.hdf5_file_path, 'r') as hdf5_file:
@@ -265,4 +267,6 @@ class HDF5Dataset(Dataset):
             if self.transform:
                 input_tensor = self.transform(input_tensor)
             
+            if self.verbose:
+                print(f"inputs_path: {inputs_path}, labels_path: {labels_path}, idx: {idx}, dataset_idx: {dataset_idx}")
             return input_tensor, label_tensor
