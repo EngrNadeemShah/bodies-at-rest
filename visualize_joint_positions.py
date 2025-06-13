@@ -1,3 +1,7 @@
+"""__!!! Activate smplx/.conda environment before running this notebook.__  
+# Won't run on Headless server (e.g. HPC) because it requires GUI."""
+
+
 ### 0. Initialization
 
 # Import libraries

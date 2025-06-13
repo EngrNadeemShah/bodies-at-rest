@@ -2,7 +2,8 @@
 # Won't run on Headless server (e.g. HPC) because it requires GUI."""
 
 
-### 0. Initialization
+### 1. Initialization
+
 # Import libraries
 import sys
 import torch
@@ -16,31 +17,19 @@ import os
 
 from torch.utils.data import DataLoader
 from datasets import HDF5Dataset
+from utils import visualize_smpl_with_joints
 
 np.set_printoptions(threshold=sys.maxsize, precision=3, suppress=True)
 
-# Check if CUDA is available
-is_cuda_available = torch.cuda.is_available()
-device = torch.device("cuda" if is_cuda_available else "cpu")
-
-# Print device information
-print(f"Device (CUDA/CPU):  {device}")
-if is_cuda_available:
-    print(f"GPU Name:           {torch.cuda.get_device_name(0)}")
-    print(f"Device Count:       {torch.cuda.device_count()}")
-    print(f"Current Device:     {torch.cuda.current_device()}")
-else:
-    print("CUDA is not available, using CPU.")
-
 # Paths to SMPL models & hdf5 dataset
-hdf5_file_path = 'synthetic_data/pre_processed/preprocessed_mod1_float32_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_1__normalize_per_image_True.hdf5'
+hdf5_file_path = '/home/nadeemshah/coding/bodies-at-rest/synthetic_data/pre_processed/preprocessed_mod1_float32_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_1__normalize_per_image_True.hdf5'
 # hdf5_file_path = '/home/nashah/scratch/data/pre_processed/preprocessed_mod1_float32_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_1__normalize_per_image_True.hdf5'
 
-smpl_feml_model_path_v1_0 = 'smpl/models/basicModel_f_lbs_10_207_0_v1.0.0.pkl'	# v1.0.0 has only 10 shape coefficients
-smpl_male_model_path_v1_0 = 'smpl/models/basicmodel_m_lbs_10_207_0_v1.0.0.pkl'	# v1.0.0 has only 10 shape coefficients
-smpl_feml_model_path_v1_1 = 'smpl/models/basicmodel_f_lbs_10_207_0_v1.1.0.pkl'	# v1.1.0 has 300 shape coefficients
-smpl_male_model_path_v1_1 = 'smpl/models/basicmodel_m_lbs_10_207_0_v1.1.0.pkl'	# v1.1.0 has 300 shape coefficients
-smpl_neut_model_path_v1_1 = 'smpl/models/basicmodel_neutral_lbs_10_207_0_v1.1.0.pkl'	# neutral is only available in v1.1.0
+smpl_feml_model_path_v1_0 = '/home/nadeemshah/coding/bodies-at-rest/smpl/models/basicModel_f_lbs_10_207_0_v1.0.0.pkl'	# v1.0.0 has only 10 shape coefficients
+smpl_male_model_path_v1_0 = '/home/nadeemshah/coding/bodies-at-rest/smpl/models/basicmodel_m_lbs_10_207_0_v1.0.0.pkl'	# v1.0.0 has only 10 shape coefficients
+smpl_feml_model_path_v1_1 = '/home/nadeemshah/coding/bodies-at-rest/smpl/models/basicmodel_f_lbs_10_207_0_v1.1.0.pkl'	# v1.1.0 has 300 shape coefficients
+smpl_male_model_path_v1_1 = '/home/nadeemshah/coding/bodies-at-rest/smpl/models/basicmodel_m_lbs_10_207_0_v1.1.0.pkl'	# v1.1.0 has 300 shape coefficients
+smpl_neut_model_path_v1_1 = '/home/nadeemshah/coding/bodies-at-rest/smpl/models/basicmodel_neutral_lbs_10_207_0_v1.1.0.pkl'	# neutral is only available in v1.1.0
 
 # Load SMPL models
 model = smplx.SMPL(smpl_feml_model_path_v1_0)
@@ -53,45 +42,6 @@ model = smplx.SMPL(smpl_feml_model_path_v1_0)
 batch_size = 1
 train_dataset = HDF5Dataset(hdf5_file_path=hdf5_file_path, split='train', verbose=True)
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
-
-
-### 1. Function
-def visualize_smpl_3d(body_pose_1, global_orient_1, betas_1, transl_1, body_pose_2=None, global_orient_2=None, betas_2=None, transl_2=None, show_ground=True):
-	mesh_color_1 = (0.2, 0.6, 1.0, 1.0)	# blue
-	mesh_color_2 = (0.6, 0.2, 1.0, 1.0)	# purple
-	ground_size = 3.0
-	faces = model.faces	# predefined faces of the SMPL model (13776, 3)
-	scene = pyrender.Scene()
-
-	### For human model 1
-	# Forward pass through the SMPL model and get vertices
-	smpl_output_1 = model(body_pose=body_pose_1, global_orient=global_orient_1, betas=betas_1, transl=transl_1)
-	vertices_1 = smpl_output_1.vertices.detach().cpu().numpy().squeeze()	# (6890, 3)
-
-	# Create a Trimesh object, color it, and add to the scene
-	mesh_1 = trimesh.Trimesh(vertices_1, faces, process=False)
-	mesh_1 = pyrender.Mesh.from_trimesh(mesh_1, material=pyrender.MetallicRoughnessMaterial(baseColorFactor=mesh_color_1))
-	scene.add(mesh_1)
-
-	### For human model 2 (if all smpl_2 parameters are provided)
-	if body_pose_2 is not None and global_orient_2 is not None and betas_2 is not None and transl_2 is not None:
-		# Forward pass through the SMPL model and get vertices
-		smpl_output_2 = model(body_pose=body_pose_2, global_orient=global_orient_2, betas=betas_2, transl=transl_2)
-		vertices_2 = smpl_output_2.vertices.detach().cpu().numpy().squeeze()	# (6890, 3)
-
-		# Create a Trimesh object, color it, and add to the scene
-		mesh_2 = trimesh.Trimesh(vertices_2, faces, process=False)
-		mesh_2 = pyrender.Mesh.from_trimesh(mesh_2, material=pyrender.MetallicRoughnessMaterial(baseColorFactor=mesh_color_2))
-		scene.add(mesh_2)
-
-	# Add a ground plane at z=0
-	if show_ground:
-		ground = trimesh.creation.box(extents=[ground_size, ground_size, 0.01])	# 0.01 is a small height to avoid z-fighting
-		ground.apply_translation([0, 0, -0.005])	# -0.005 (half of height) to place it at z=0
-		scene.add(pyrender.Mesh.from_trimesh(ground, smooth=False))
-
-	# Show with lighting
-	viewer = pyrender.Viewer(scene, use_raymond_lighting=True)
 
 
 ### 2. Set paths and parameters
@@ -210,51 +160,57 @@ for inputs, true_labels in train_loader:
 
 ### 4.1. Single human model visualization
 # # Original (without z)
-# visualize_smpl_3d(
-# 	body_pose_1=body_pose_orig, global_orient_1=global_orient_orig, betas_1=betas_orig, transl_1=transl_orig)
+# visualize_smpl_with_joints(
+# 	model=model, body_pose_1=body_pose_orig, global_orient_1=global_orient_orig, betas_1=betas_orig, transl_1=transl_orig)
 
 # # Estimated (without z)
-# visualize_smpl_3d(
-# 	body_pose_1=body_pose_est, global_orient_1=global_orient_est, betas_1=betas_est, transl_1=transl_est)
+# visualize_smpl_with_joints(
+# 	model=model, body_pose_1=body_pose_est, global_orient_1=global_orient_est, betas_1=betas_est, transl_1=transl_est)
 
 # # Original (with z)
-# visualize_smpl_3d(
-# 	body_pose_1=body_pose_orig, global_orient_1=global_orient_orig, betas_1=betas_orig, transl_1=transl_z_adj_orig)
+# visualize_smpl_with_joints(
+# 	model=model, body_pose_1=body_pose_orig, global_orient_1=global_orient_orig, betas_1=betas_orig, transl_1=transl_z_adj_orig)
 
 # # Estimated (with z)
-# visualize_smpl_3d(
-# 	body_pose_1=body_pose_est, global_orient_1=global_orient_est, betas_1=betas_est, transl_1=transl_z_adj_est)
+# visualize_smpl_with_joints(
+# 	model=model, body_pose_1=body_pose_est, global_orient_1=global_orient_est, betas_1=betas_est, transl_1=transl_z_adj_est)
 
 
 ### 4.2. Human Model 1 (Blue) | Human Model 2 (Purple)
 
 # # Original (without z) | Estimated (without z)
-# visualize_smpl_3d(
+# visualize_smpl_with_joints(
+# 	model=model,
 # 	body_pose_1=body_pose_orig, global_orient_1=global_orient_orig, betas_1=betas_orig, transl_1=transl_orig,
 # 	body_pose_2=body_pose_est, global_orient_2=global_orient_est, betas_2=betas_est, transl_2=transl_est)
 
 # # Original (with z) | Estimated (with z)
-# visualize_smpl_3d(
+# visualize_smpl_with_joints(
+# 	model=model,
 # 	body_pose_1=body_pose_orig, global_orient_1=global_orient_orig, betas_1=betas_orig, transl_1=transl_z_adj_orig,
 # 	body_pose_2=body_pose_est, global_orient_2=global_orient_est, betas_2=betas_est, transl_2=transl_z_adj_est)
 
 # # Original (without z) | Original (with z)
-# visualize_smpl_3d(
+# visualize_smpl_with_joints(
+# 	model=model,
 # 	body_pose_1=body_pose_orig, global_orient_1=global_orient_orig, betas_1=betas_orig, transl_1=transl_orig,
 # 	body_pose_2=body_pose_orig, global_orient_2=global_orient_orig, betas_2=betas_orig, transl_2=transl_z_adj_orig)
 
 # # Estimated (without z) | Estimated (with z)
-# visualize_smpl_3d(
+# visualize_smpl_with_joints(
+# 	model=model,
 # 	body_pose_1=body_pose_est, global_orient_1=global_orient_est, betas_1=betas_est, transl_1=transl_est,
 # 	body_pose_2=body_pose_est, global_orient_2=global_orient_est, betas_2=betas_est, transl_2=transl_z_adj_est)
 
 # # Original (without z) | Estimated (with z)
-# visualize_smpl_3d(
+# visualize_smpl_with_joints(
+# 	model=model,
 # 	body_pose_1=body_pose_orig, global_orient_1=global_orient_orig, betas_1=betas_orig, transl_1=transl_orig,
 # 	body_pose_2=body_pose_est, global_orient_2=global_orient_est, betas_2=betas_est, transl_2=transl_z_adj_est)
 
 # # Original (with z) | Estimated (without z)	-> this is the correct one (as estimated_smpl_params are the output of the trained mod1, which was trained on original z-adjusted ground truth, therefore, the estimated parameters are already adjusted for z)
-# visualize_smpl_3d(
+# visualize_smpl_with_joints(
+# 	model=model,
 # 	body_pose_1=body_pose_orig, global_orient_1=global_orient_orig, betas_1=betas_orig, transl_1=transl_z_adj_orig,
 # 	body_pose_2=body_pose_est, global_orient_2=global_orient_est, betas_2=betas_est, transl_2=transl_est)
 
@@ -262,23 +218,27 @@ for inputs, true_labels in train_loader:
 ### 4.3. Raw (.p) vs Processed (.hdf5) dataset
 
 # # Original (without z) | HDF5 (without z)
-# visualize_smpl_3d(
+# visualize_smpl_with_joints(
+# 	model=model,
 # 	body_pose_1=body_pose_orig, global_orient_1=global_orient_orig, betas_1=betas_orig, transl_1=transl_orig,
 # 	body_pose_2=body_pose_hdf5, global_orient_2=global_orient_hdf5, betas_2=betas_hdf5, transl_2=transl_hdf5)
 
 # # Original (with z) | HDF5 (with z=z_adj)
 # transl_z_adj_hdf5 = transl_hdf5 + torch.tensor([0, 0, z_adj]).float().unsqueeze(0)
-# visualize_smpl_3d(
+# visualize_smpl_with_joints(
+# 	model=model,
 # 	body_pose_1=body_pose_orig, global_orient_1=global_orient_orig, betas_1=betas_orig, transl_1=transl_z_adj_orig,
 # 	body_pose_2=body_pose_hdf5, global_orient_2=global_orient_hdf5, betas_2=betas_hdf5, transl_2=transl_z_adj_hdf5)
 
 # Original (with z) | HDF5 (with z=infinitely small)
 transl_z_adj_hdf5 = transl_hdf5 + torch.tensor([0, 0, 1e-5]).float().unsqueeze(0)  # Adding a very small value to z
-visualize_smpl_3d(
+visualize_smpl_with_joints(
+	model=model,
 	body_pose_1=body_pose_orig, global_orient_1=global_orient_orig, betas_1=betas_orig, transl_1=transl_z_adj_orig,
 	body_pose_2=body_pose_hdf5, global_orient_2=global_orient_hdf5, betas_2=betas_hdf5, transl_2=transl_z_adj_hdf5)
 
 # # Original (with z) | HDF5 (without z)	-> they both are the same, as HDF5 dataset is pre-processed using preprocess_data.py which already adjusts the z-coordinate of the root joint (pelvis) by z_adj=-0.075m (-7.5 cm)
-# visualize_smpl_3d(
+# visualize_smpl_with_joints(
+# 	model=model,
 # 	body_pose_1=body_pose_orig, global_orient_1=global_orient_orig, betas_1=betas_orig, transl_1=transl_z_adj_orig,
 # 	body_pose_2=body_pose_hdf5, global_orient_2=global_orient_hdf5, betas_2=betas_hdf5, transl_2=transl_hdf5)
