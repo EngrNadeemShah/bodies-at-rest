@@ -3,6 +3,8 @@ import numpy as np
 import torch.nn.functional as F
 import os
 import matplotlib.pyplot as plt
+import trimesh
+import pyrender
 
 
 def convert_axis_angle_to_rotation_matrix(theta):
@@ -229,3 +231,55 @@ def print_mean_of_model_weights_and_gradients(model, message="Model Parameters a
 	for name, param in model.named_parameters():
 		if param.requires_grad:
 			print(f"{name}:\tmean={param.data.mean():.6f}, grad={param.grad.mean().item() if param.grad is not None else 'None'}")
+
+def visualize_smpl_with_joints(model,
+                               body_pose_1, global_orient_1, betas_1, transl_1,
+                               joints_1=None,
+                               body_pose_2=None, global_orient_2=None, betas_2=None, transl_2=None,
+                               joints_2=None,
+                               show_ground=True, joint_radius=0.015, ground_size=3.0):
+
+    mesh_color_1 = (0.2, 0.6, 1.0, 1.0)	# blue
+    mesh_color_2 = (0.6, 0.2, 1.0, 1.0)	# purple
+    faces = model.faces
+    scene = pyrender.Scene()
+
+    # --- SMPL Model 1
+    smpl_output_1 = model(body_pose=body_pose_1, global_orient=global_orient_1, betas=betas_1, transl=transl_1)
+    vertices_1 = smpl_output_1.vertices.detach().cpu().numpy().squeeze()
+    mesh_1 = trimesh.Trimesh(vertices_1, faces, process=False)
+    mesh_1 = pyrender.Mesh.from_trimesh(mesh_1, material=pyrender.MetallicRoughnessMaterial(baseColorFactor=mesh_color_1))
+    scene.add(mesh_1)
+
+    # --- Optional Joint Markers (Set 1)
+    if joints_1 is not None:
+        for joint in joints_1:
+            sphere = trimesh.creation.icosphere(radius=joint_radius)
+            sphere.apply_translation(joint)
+            marker_mesh = pyrender.Mesh.from_trimesh(sphere, smooth=False)
+            scene.add(marker_mesh)
+
+    # --- SMPL Model 2
+    if body_pose_2 is not None and global_orient_2 is not None and betas_2 is not None and transl_2 is not None:
+        smpl_output_2 = model(body_pose=body_pose_2, global_orient=global_orient_2, betas=betas_2, transl=transl_2)
+        vertices_2 = smpl_output_2.vertices.detach().cpu().numpy().squeeze()
+        mesh_2 = trimesh.Trimesh(vertices_2, faces, process=False)
+        mesh_2 = pyrender.Mesh.from_trimesh(mesh_2, material=pyrender.MetallicRoughnessMaterial(baseColorFactor=mesh_color_2))
+        scene.add(mesh_2)
+
+        # --- Optional Joint Markers (Set 2)
+        if joints_2 is not None:
+            for joint in joints_2:
+                sphere = trimesh.creation.icosphere(radius=joint_radius)
+                sphere.apply_translation(joint)
+                marker_mesh = pyrender.Mesh.from_trimesh(sphere, smooth=False)
+                scene.add(marker_mesh)
+
+    # --- Ground plane
+    if show_ground:
+        ground = trimesh.creation.box(extents=[ground_size, ground_size, 0.01])
+        ground.apply_translation([0, 0, -0.005])
+        scene.add(pyrender.Mesh.from_trimesh(ground, smooth=False))
+
+    # --- Show scene
+    pyrender.Viewer(scene, use_raymond_lighting=True)
