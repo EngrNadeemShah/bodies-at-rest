@@ -6,6 +6,9 @@ import matplotlib.pyplot as plt
 import trimesh
 import pyrender
 
+import matplotlib as mpl
+mpl.use('TkAgg')
+
 
 def convert_axis_angle_to_rotation_matrix(theta):
 	"""
@@ -153,7 +156,7 @@ def retrieve_data_file_paths(folder, verbose=False):
 				print(f'{file_index+1:02d} ({total_files:02d}): {file}') if verbose else None
 	return file_paths
 
-def plot_input_channels(inputs_batch, batch_idx):
+def plot_input_channels(inputs_batch, batch_idx=0):
 	num_channels = inputs_batch.shape[1]
 	num_cols = min(num_channels, 5)
 	num_rows = (num_channels + num_cols - 1) // num_cols
