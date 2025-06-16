@@ -11,7 +11,7 @@ import h5py
 
 from torch.utils.data import DataLoader
 from datasets import HDF5Dataset
-from utils import plot_input_channels, retrieve_data_file_paths
+from utils import plot_input_channels
 
 np.set_printoptions(threshold=sys.maxsize, precision=2, suppress=True)
 
@@ -39,14 +39,16 @@ pkl_file_path = '/home/nadeemshah/coding/bodies-at-rest/synthetic_data/original/
 # pkl_file_path = '/home/nadeemshah/coding/bodies-at-rest/synthetic_data/original/mod2/train/straight_limbs/train_roll0_sl_m_lay_set2pa1_4000_convnet_1_anglesDC_184000ct_128b_x1pm_tnh_100e_2e-05lr.p'
 
 index = 0
+# index = random.randint(0, 3999)
 
-# # Load the HDF5 file
+
+
+# ### Load the HDF5 file ###
 # with h5py.File(hdf5_file_path, 'r') as f:
 # 	# inputs_hdf5 = f['train/straight_limbs/f/inputs'][index]
-# 	inputs_hdf5 = f['train']
-# 	print(inputs_hdf5)
-# 	# print(inputs_hdf5.shape)
-# 	# plot_input_channels(inputs_hdf5)
+# 	inputs_hdf5 = torch.tensor(inputs_hdf5).unsqueeze(0)
+# 	print(f"inputs_hdf5:		{inputs_hdf5.shape}, dtype: {inputs_hdf5.dtype}")
+# 	# plot_input_channels(inputs_hdf5, index)
 
 
 with h5py.File(hdf5_file_path, 'r') as f:
@@ -63,7 +65,8 @@ with h5py.File(hdf5_file_path, 'r') as f:
     print_hdf5_structure(f)
 
 
-# Load the pickle file
+
+### Load the pickle file ###
 with open(pkl_file_path, 'rb') as f:
 	data = pickle.load(f, encoding='latin1')  # Use 'latin1' for Python 2 compatibility
 
@@ -78,6 +81,6 @@ images		= torch.tensor(np.array(data['images'])).float()[index].unsqueeze(0).res
 mesh_contact= torch.tensor(np.array(data['mesh_contact'])).float()[index].unsqueeze(0)				# dtype=bool
 mesh_depth	= torch.tensor(np.array(data['mesh_depth'])).float()[index].unsqueeze(0)					# dtype=int32
 
-input_pickled = torch.cat((images, mesh_contact, mesh_depth), dim=0).unsqueeze(0)
-print(f"input_pickled:		{input_pickled.shape}")
-# plot_input_channels(input_pickled)
+inputs_pickled = torch.cat((images, mesh_contact, mesh_depth), dim=0).unsqueeze(0)
+print(f"inputs_pickled:		{inputs_pickled.shape}, dtype: {inputs_pickled.dtype}")
+# plot_input_channels(inputs_pickled, index)
