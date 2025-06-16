@@ -165,7 +165,7 @@ def plot_input_channels(inputs_batch, batch_idx=0):
 
 	for i in range(num_channels):
 		axes[i].imshow(inputs_batch[0, i].cpu().numpy())
-		axes[i].set_title(f'Input Channel {i}\n{inputs_batch[0, i].shape} | {inputs_batch[0, i].dtype}\nmin: {inputs_batch[0, i].min():.2f} | max: {inputs_batch[0, i].max():.2f}\nmean: {inputs_batch[0, i].mean():.2f} | sum: {inputs_batch[0, i].sum():.2f}', fontsize=8, pad=10)
+		axes[i].set_title(f'Input Channel {i}\n{inputs_batch[0, i].shape} | {inputs_batch[0, i].dtype}\nmin: {inputs_batch[0, i].min():.2f} | max: {inputs_batch[0, i].max():.2f}\nmean: {inputs_batch[0, i].mean():.2f} | std: {inputs_batch[0, i].std():.2f}', fontsize=8, pad=10)
 		axes[i].axis('off')
 
 	for j in range(i + 1, len(axes)):
@@ -286,3 +286,12 @@ def visualize_smpl_with_joints(model,
 
     # --- Show scene
     pyrender.Viewer(scene, use_raymond_lighting=True)
+
+def plot_single_channel(input_image, batch_idx=0, title='Image'):
+	if isinstance(input_image, torch.Tensor):
+		input_image = input_image.cpu().numpy()
+
+	plt.imshow(input_image)
+	plt.title(f'{title} | {input_image.shape} | {input_image.dtype}\nmin: {input_image.min():.2f} | max: {input_image.max():.2f}\nmean: {input_image.mean():.2f} | std: {input_image.std():.2f}', fontsize=8, pad=10)
+	plt.axis('off')
+	plt.show()
