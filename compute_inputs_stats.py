@@ -12,11 +12,11 @@ def calculate_stats(inputs):
 	}
 	return stats
 
-def process_hdf5_inputs(hdf5_path, output_csv_prefix):
+def process_hdf5_inputs(hdf5_path, output_filename='stats_train_inputs_processed.xlsx'):
 	"""Process train inputs and save stats to CSV with multiple sheets"""
 	with h5py.File(hdf5_path, 'r') as file:
 		# Initialize Excel writer
-		writer = pd.ExcelWriter(f'stats_{output_csv_prefix}_inputs_processed.xlsx', engine='xlsxwriter')
+		writer = pd.ExcelWriter(output_filename, engine='xlsxwriter')
 
 		# Process each group (train or test)
 		for split in ['train']:
@@ -48,14 +48,16 @@ def process_hdf5_inputs(hdf5_path, output_csv_prefix):
 		writer.close()
 
 # HDF5 file paths
-hdf5_file_path = '/home/nashah/scratch/data/pre_processed/preprocessed_mod1_float32_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_1__normalize_per_image_True.hdf5'
+# hdf5_file_path = '/home/nashah/scratch/data/pre_processed/preprocessed_mod1_float32_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_1__normalize_per_image_True.hdf5'
 # hdf5_file_path = '/home/nashah/scratch/data/pre_processed/preprocessed_mod2_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_2__normalize_per_image_True.hdf5'
 
 # hdf5_file_path = '/home/nadeemshah/coding/bodies-at-rest/synthetic_data/pre_processed/preprocessed_mod1_float32_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_1__normalize_per_image_True.hdf5'
 # hdf5_file_path = '/home/nadeemshah/coding/bodies-at-rest/synthetic_data/pre_processed/preprocessed_mod2_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_2__normalize_per_image_True.hdf5'
+hdf5_file_path = '/home/nadeemshah/coding/bodies-at-rest/synthetic_data/pre_processed/preprocessed_straight_limbs_mod1_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_1__normalize_per_image_True.hdf5'
 
 
 # Process train and test labels
-process_hdf5_inputs(hdf5_file_path, 'train')
+output_filename = 'stats_train_inputs_processed_straight_limbs.xlsx'
+process_hdf5_inputs(hdf5_file_path, output_filename)
 
-print("Statistics saved to stats_train_inputs_processed.xlsx")
+print(f"Statistics saved to {output_filename}")
