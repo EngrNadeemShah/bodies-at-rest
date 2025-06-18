@@ -375,10 +375,10 @@ if __name__ == '__main__':
 
 	# Define the path to the original train and test data (.pickle files)
 	if config['mod'] == 1:
-		# train_files_dir = os.path.join(os.environ['HOME'], 'scratch', 'data', 'original', 'mod1', 'train', 'straight_limbs')
-		# valid_files_dir = os.path.join(os.environ['HOME'], 'scratch', 'data', 'original', 'mod1', 'test', 'straight_limbs')
-		train_files_dir = os.path.join(os.environ['HOME'], 'coding', 'bodies-at-rest', 'synthetic_data', 'original', 'mod1', 'train', 'straight_limbs')
-		valid_files_dir = os.path.join(os.environ['HOME'], 'coding', 'bodies-at-rest', 'synthetic_data', 'original', 'mod1', 'test', 'straight_limbs')
+		train_files_dir = os.path.join(os.environ['HOME'], 'scratch', 'data', 'original', 'mod1', 'train', 'straight_limbs')
+		valid_files_dir = os.path.join(os.environ['HOME'], 'scratch', 'data', 'original', 'mod1', 'test', 'straight_limbs')
+		# train_files_dir = os.path.join(os.environ['HOME'], 'coding', 'bodies-at-rest', 'synthetic_data', 'original', 'mod1', 'train', 'straight_limbs')
+		# valid_files_dir = os.path.join(os.environ['HOME'], 'coding', 'bodies-at-rest', 'synthetic_data', 'original', 'mod1', 'test', 'straight_limbs')
 	elif config['mod'] == 2:
 		# train_files_dir = os.path.join(os.environ['HOME'], 'scratch', 'data', 'original', 'mod2', 'train', 'straight_limbs')
 		# valid_files_dir = os.path.join(os.environ['HOME'], 'scratch', 'data', 'original', 'mod2', 'test', 'straight_limbs')
