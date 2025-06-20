@@ -13,7 +13,7 @@ import smplx
 from time import time
 from tqdm import tqdm
 import pickle as pkl
-from utils import print_error_summary, retrieve_data_file_paths, plot_input_channels, format_stats, print_mean_of_model_weights_and_gradients
+from utils import print_error_summary, retrieve_data_file_paths, plot_input_channels, format_stats, print_mean_of_model_weights_and_gradients, get_preprocessed_hdf5_path
 from datetime import datetime
 import os
 from torch.amp import GradScaler, autocast
@@ -195,8 +195,14 @@ def main():
 	# 1. Data Preparation
 
 	# Create the train and valid datasets and data loaders
-	# hdf5_file_path = 'synthetic_data/pre_processed/preprocessed_mod1_float32_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_1__normalize_per_image_True.hdf5'
-	hdf5_file_path = '../../scratch/data/pre_processed/preprocessed_mod1_float32_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_1__normalize_per_image_True.hdf5'
+	# HDF5 file paths
+	# hdf5_file_name = 'preprocessed_mod1_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_1__normalize_per_image_True.hdf5'
+	# hdf5_file_name = 'preprocessed_mod2_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_2__normalize_per_image_True.hdf5'
+	# hdf5_file_name = 'preprocessed_straight_limbs_mod1_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_1__normalize_per_image_True_no_75mm.hdf5'
+	hdf5_file_name = 'preprocessed_straight_limbs_mod1_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_1__normalize_per_image_True.hdf5'
+
+	hdf5_file_path = get_preprocessed_hdf5_path(hdf5_file_name)
+
 	train_dataset = HDF5Dataset(hdf5_file_path=hdf5_file_path, split='train')
 	valid_dataset = HDF5Dataset(hdf5_file_path=hdf5_file_path, split='test')
 

@@ -7,7 +7,7 @@ import trimesh
 import pyrender
 
 import matplotlib as mpl
-mpl.use('TkAgg')
+# mpl.use('TkAgg')
 
 
 def convert_axis_angle_to_rotation_matrix(theta):
@@ -295,3 +295,6 @@ def plot_single_channel(input_image, batch_idx=0, title='Image'):
 	plt.title(f'{title} | {input_image.shape} | {input_image.dtype}\nmin: {input_image.min():.2f} | max: {input_image.max():.2f}\nmean: {input_image.mean():.2f} | std: {input_image.std():.2f}', fontsize=8, pad=10)
 	plt.axis('off')
 	plt.show()
+
+def get_preprocessed_hdf5_path(filename):
+    return os.path.join(os.path.expanduser('~'), 'scratch/data/pre_processed', filename)
