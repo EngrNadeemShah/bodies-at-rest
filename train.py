@@ -237,7 +237,7 @@ def main():
 
 
 	# 2. Define the model, optimizer, and loss functions
-	model = PressureNet(in_channels=train_dataset[0][0].shape[0], num_classes=88, use_relu=config['use_relu']).to(device)
+	model = PressureNet(in_channels=train_dataset.num_channels, num_classes=88, use_relu=config['use_relu']).to(device)
 	optimizer = optim.Adam(model.parameters(), lr=config['learning_rate'], weight_decay=0.0005)
 	criterion1 = nn.L1Loss()
 	criterion2 = nn.MSELoss()
@@ -246,7 +246,7 @@ def main():
 		print("\nModel Summary:")
 		print(model)
 		print()
-		summary(model, input_size=(config['batch_size'], train_dataset[0][0].shape[0], 128, 54), device=device.type)
+		summary(model, input_size=(config['batch_size'], train_dataset.num_channels, 128, 54), device=device.type)
 
 	# 3. Load SMPL models
 	smpl_male_model_path = 'smpl/models/basicmodel_m_lbs_10_207_0_v1.0.0.pkl'

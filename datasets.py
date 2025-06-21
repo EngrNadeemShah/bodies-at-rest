@@ -240,6 +240,7 @@ class HDF5Dataset(Dataset):
 
             self.cumulative_lengths = torch.cumsum(torch.tensor(self.lengths), dim=0)
             self.total_size = self.cumulative_lengths[-1].item()
+            self.num_channels = hdf5_file[inputs_path].shape[1]
     
     def __len__(self):
         return self.total_size
