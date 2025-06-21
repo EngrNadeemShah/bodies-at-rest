@@ -272,13 +272,15 @@ class DataPreprocessor:
 	def load_label(self, file_data, g1, g2):
 		s1 = np.ones_like(g1)	# always 1 because we always have synthetic data
 
-		three_axes_adj = np.array([-0.0003, 0.2048, -0.0339], dtype=np.float32)
+		z_adj = -0.075		# Adjust z-axis by -75mm (0.075m) to push the body down on bed (pressure mattress)
+		joint_positions_adj = np.array(24 * [0, 0, z_adj], dtype=np.float32)
+		transl_adj = np.array([-0.0003, 0.2048, -0.0339 + z_adj], dtype=np.float32)		# Adjust root_xyz_shift (transl) by (-0.3mm, 20.48cm, -3.39cm) offset calculated by comparing with default SMPL model
 
 		labels = np.concatenate([
-			np.array(file_data['markers_xyz_m'], dtype=np.float32),														# 0:72		(72)
+			np.array(file_data['markers_xyz_m'], dtype=np.float32) + joint_positions_adj,								# 0:72		(72)
 			np.array(file_data['body_shape'], dtype=np.float32),														# 72:82		(10)
 			np.array(file_data['joint_angles'], dtype=np.float32),														# 82:154	(72)
-			np.array(file_data['root_xyz_shift'], dtype=np.float32) + three_axes_adj,											# 154:157	(3)
+			np.array(file_data['root_xyz_shift'], dtype=np.float32) + transl_adj,										# 154:157	(3)
 			g1[:, None], g2[:, None], s1[:, None],																		# 157:160	(3)
 			np.array(file_data['body_mass'], dtype=np.float32)[:, None] * self.config['normalize_std_dev'][8],					# 160:161	(1)
 			(np.array(file_data['body_height'], dtype=np.float32)[:, None] - 1.0) * 100 * self.config['normalize_std_dev'][9]	# 161:162	(1)
