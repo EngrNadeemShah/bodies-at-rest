@@ -116,45 +116,48 @@ class PressureNet(nn.Module):
 	def forward(self, x):
 		# Feature extraction
 		x = self.features(x)		# (B, in_channels, 128, 54) -> (B, 384, 25, 7)
-		x = torch.flatten(x, 1)		# (B, 384 * 25 * 7) -> (B, 67200)
-		x = self.output_layer(x)	# (B, 67200) -> (B, num_classes)
+		x = torch.flatten(x, 1)		# (B, 384, 25, 7) -> (B, 384*25*7=67200)
+		x = self.output_layer(x)	# (B, 67200) -> (B, 88)
 
-		# 1. Post-processing transformations on predicted_labels:
-		# Scale adjustment
-		x *= 0.01
+		# # 1. Scale adjustment
+		# x *= 0.01		# todo Apply selective scaling (0.01 only on translation, not entire vector)
 
-		# Padding to increase the last dimension from 88 to 91
-		x = F.pad(x, (0, 3))
+		# # 2. Pad to match SMPL format: from 88 → 91 dims
+		# # Extra 3 slots are reserved for copying and transforming Cartesian root to angle
+		# x = F.pad(x, (0, 3))	# (B, 88) -> (B, 91)
 
-		# Copying and reorganizing body_pose (23 joints * 3D axis-angle rotations)
-		x[:, 22:91] = x[:, 19:88].clone()
+		# # 3. Shift body_pose (23 joints * 3D axis-angle = 69 dims)
+		# # to the end from x[:, 19:88] to x[:, 22:91]
+		# body_pose = x[:, 19:88].clone()
+		# x[:, 22:91] = body_pose
 
-		# Apply tanh normalization to betas
-		x[:, 0:10] = torch.tanh(x[:, 0:10] / 3) * 3
-		# For Betas SMPL expects ~[-3, 3]
-		# x[:, 0:10] = torch.tanh(x[:, 0:10]) * 3.0
+		# # 4. Normalize betas (shape parameters) to be within ~[-3, 3]
+		# x[:, 0:10] = torch.tanh(x[:, 0:10] / 3) * 3
 
-		# Offset adjustment for root/global joint (pelvis) location
-		x[:, 10:13] += torch.tensor([0.6, 1.2, 0.1], device=x.device)
+		# # 5. Apply fixed offset to root translation (empirically derived)
+		# x[:, 10:13] += torch.tensor([0.6, 1.2, 0.1], device=x.device)
+		# # E.g., if subject is lying on a bed → values like [0.0, 1.0, 0.8]
 
-		# Converting Cartesian coordinates of the root/global joint (pelvis) location to axis-angle rotations
-		# x[:, 19:22] = torch.atan2(
-		# 	x[:, [16, 17, 18]],
-		# 	x[:, [13, 14, 15]]
-		# )
+		# # 6. Safe atan2 conversion of root rotation from 6D (sin, cos) components to axis-angle representation
+		# def safe_atan2(y, x, eps=1e-6):
+		# 	return torch.atan2(y + eps * (y == 0).float(), x + eps * (x == 0).float())
 
-		def safe_atan2(y, x, eps=1e-6):
-			return torch.atan2(y + eps * (y == 0).float(), x + eps * (x == 0).float())
-		x[:, 19:22] = safe_atan2(
-			x[:, [16, 17, 18]],
-			x[:, [13, 14, 15]]
-		)
+		# root_sin = x[:, [16, 17, 18]]
+		# root_cos = x[:, [13, 14, 15]]
+		# x[:, 19:22] = safe_atan2(root_sin, root_cos)
 
-		# Bounds normalization
-		bounds_mean = self.bounds.mean(dim=1)		# (72, 2) -> (72,)
-		bounds_diff = self.bounds[:, 1] - self.bounds[:, 0]
-		scaled_labels = (x[:, 19:91] - bounds_mean) * (2.0 / bounds_diff)
-		tanh_labels = torch.tanh(scaled_labels)
-		x[:, 19:91] = tanh_labels / (2.0 / bounds_diff) + bounds_mean
+		# 7. Apply bounds-based tanh normalization on body_pose
+		# Calculate bounds mean and difference
+		bounds_mean = self.bounds.mean(dim=1)	# (72, 2) -> (72,)
+		bounds_diff = self.bounds[:, 1] - self.bounds[:, 0]	# (72,)
+
+		# Normalize using bounds mean and diff
+		body_pose_normalized = (x[:, 19:91] - bounds_mean) * (2.0 / bounds_diff)
+
+		# Clip to [-1, 1] range
+		body_pose_clipped = torch.tanh(body_pose_normalized)
+
+		# Rescale back to original bounds
+		x[:, 19:91] = body_pose_clipped / (2.0 / bounds_diff) + bounds_mean
 
 		return x
