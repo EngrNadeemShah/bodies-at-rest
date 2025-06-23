@@ -298,3 +298,31 @@ def plot_single_channel(input_image, batch_idx=0, title='Image'):
 
 def get_preprocessed_hdf5_path(filename):
     return os.path.join(os.path.expanduser('~'), 'scratch/data/pre_processed', filename)
+
+def save_checkpoint(path, epoch, model, optimizer, scheduler,
+                    train_valid_losses, best_valid_loss,
+                    scaler=None):
+    """
+    path: where to write the .pth
+    epoch:     current epoch
+    model:     your nn.Module
+    optimizer: AdamW (or Adam)
+    scheduler: e.g. CosineAnnealingLR
+    train_valid_losses: dict of lists for plotting/resume
+    best_valid_loss:    float
+    scaler:    amp GradScaler or None
+    """
+    ckpt = {
+        'epoch': epoch,
+        'model_state_dict':       model.state_dict(),
+        'optimizer_state_dict':   optimizer.state_dict(),
+        'scheduler_state_dict':   scheduler.state_dict(),
+        'best_valid_loss':        best_valid_loss,
+        'train_valid_losses':     train_valid_losses,
+    }
+
+    if scaler is not None:
+        ckpt['scaler_state_dict'] = scaler.state_dict()
+
+    torch.save(ckpt, path)
+    print(f"Checkpoint saved to {path}")
