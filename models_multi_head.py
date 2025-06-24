@@ -130,7 +130,7 @@ class PressureNetMultiHead(nn.Module):
 		self.head_transl = nn.Linear(2048, 3)
 
 		# Learnable translation bias, and store bounds as a buffer
-		self.transl_bias = nn.Parameter(torch.tensor([0.6, 1.2, 0.1]))
+		self.transl_bias = nn.Parameter(torch.tensor([0.66, 1.43, -0.01]))		# Old based on whole dataset: [0.6, 1.2, 0.1]. Calc. on straight_limbs dataset[0.66, 1.43, -0.01] (with -0.075m z_adj)
 		self.register_buffer("bounds", bounds)
 
 	def _clip_into_bounds(self, raw: torch.Tensor, bounds: torch.Tensor) -> torch.Tensor:
