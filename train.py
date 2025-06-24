@@ -47,7 +47,27 @@ def geodesic_loss(R_pred: torch.Tensor, R_gt: torch.Tensor, eps: float = 1e-6) -
 	theta = torch.acos(cos)		# θ in [0, π]
 	return theta.mean()
 
-def train(model, train_loader, device, smpl_preloader, config, optimizer, scaler):
+# Replace static w_* (weights for losses) scalars with learnable weights using homoscedastic uncertainty (log-variance) trick
+class AdaptiveLoss(nn.Module):
+	"""
+	Learns a log-variance per loss term; at forward we do:
+		total = Σ_i [ exp(–log_vars[i]) * L_i  +  log_vars[i] ]
+	so that exp(–log_vars[i]) is the effective weight on L_i.
+	"""
+	def __init__(self):
+		super().__init__()
+		# 5 terms: joints, betas, global_orient, body_pose, transl
+		self.log_vars = nn.Parameter(torch.zeros(5))
+
+	def forward(self, losses: List[torch.Tensor]) -> torch.Tensor:
+		total = 0.0
+		for i, Li in enumerate(losses):
+			inv_var = torch.exp(-self.log_vars[i])
+			total += inv_var * Li + self.log_vars[i]
+		return total
+
+
+def train(model, train_loader, device, smpl_preloader, config, adaptive_loss_weights, optimizer, scaler):
 	torch.autograd.set_detect_anomaly(True)
 	print(f"\nTraining ...")
 
@@ -104,15 +124,10 @@ def train(model, train_loader, device, smpl_preloader, config, optimizer, scaler
 		body_pose_rotMat_gt   = axis_angle_to_matrix(body_pose_aa_gt)	# (B, 23, 3) -> (B, 23, 3, 3)
 		body_pose_loss = geodesic_loss(body_pose_rotMat_pred, body_pose_rotMat_gt)
 
-		# Combine SMPL parameters losses
-		smpl_params_loss = (
-			config['w_betas'] * betas_loss +
-			config['w_transl'] * transl_loss +
-			config['w_global_orient'] * global_orient_loss +
-			config['w_body_pose'] * body_pose_loss)
-
-		# Combine the losses
-		batch_loss = config['w_joints'] * joints_loss + smpl_params_loss
+		# pack losses in the fixed order matching log_vars:
+		# [ joints, betas, global_orient, body_pose, transl ]
+		losses = [joints_loss, betas_loss, global_orient_loss, body_pose_loss, transl_loss]
+		batch_loss = adaptive_loss_weights(losses)
 
 		# Backward pass and optimization (Outside the autocast context)
 		scaler.scale(batch_loss).backward()			# compute (scaled) grads
@@ -143,7 +158,7 @@ def train(model, train_loader, device, smpl_preloader, config, optimizer, scaler
 	avg_mpjpe = running_mpjpe / total_samples
 	return avg_loss, avg_mpjpe
 
-def validate(model, valid_loader, device, smpl_preloader, config):
+def validate(model, valid_loader, device, smpl_preloader, config, adaptive_loss_weights):
 	print(f"\nValidating ...")
 
 	running_loss = 0.0
@@ -197,15 +212,10 @@ def validate(model, valid_loader, device, smpl_preloader, config):
 				body_pose_rotMat_gt   = axis_angle_to_matrix(body_pose_aa_gt)	# (B, 23, 3) -> (B, 23, 3, 3)
 				body_pose_loss = geodesic_loss(body_pose_rotMat_pred, body_pose_rotMat_gt)
 
-				# Combine SMPL parameters losses
-				smpl_params_loss = (
-					config['w_betas'] * betas_loss +
-					config['w_transl'] * transl_loss +
-					config['w_global_orient'] * global_orient_loss +
-					config['w_body_pose'] * body_pose_loss)
-
-				# Combine the losses
-				batch_loss = config['w_joints'] * joints_loss + smpl_params_loss
+				# pack losses in the fixed order matching log_vars:
+				# [ joints, betas, global_orient, body_pose, transl ]
+				losses = [joints_loss, betas_loss, global_orient_loss, body_pose_loss, transl_loss]
+				batch_loss = adaptive_loss_weights(losses)
 
 			# Accumulate loss
 			running_loss += batch_loss.item() * B
@@ -252,11 +262,6 @@ def main():
 		'lr_init':				0.001,	# 1e-4(0.0001) to 1e-3(0.001)						(default: 3e-4(0.0003))
 		'weight_decay':  		0.0005,	# L2 regularization: 1e-5(0.00001) to 1e-2(0.01)	(default: 5e-4(0.0005))
 		'eta_min':				1e-6,	# LR floor for CosineAnnealing: 0 to 1e-5(0.00001)	(default: 1e-6(0.000001))
-		'w_joints':				1.0,	# (default: 1.0)
-		'w_betas':				0.1,	# (default: 1.0)
-		'w_transl':				0.1,	# (default: 1.0)
-		'w_global_orient':		1.0,	# (default: 1.0)
-		'w_body_pose':			1.0,	# (default: 1.0)
 
 		# For DataLoader
 		'pin_memory':			True,	# the data loader will copy Tensors into device/CUDA pinned memory before returning them.
@@ -335,7 +340,17 @@ def main():
 
 	# 2. Define the model, optimizer, and loss functions
 	model = PressureNet(in_channels=train_dataset.num_channels, use_relu=config['use_relu']).to(device)
-	optimizer = AdamW(model.parameters(), lr=config['lr_init'], weight_decay=config['weight_decay'])
+
+
+	# — adaptive weights for joint & SMPL losses —
+	adaptive_loss_weights = AdaptiveLoss().to(device)
+	# init_ws = torch.tensor([1.0, 0.1, 0.1, 0.1, 0.1], device=device)
+	# # we want exp(-log_var) = w  =>  log_var = -log(w)
+	# adaptive_loss_weights.log_vars.data = -torch.log(init_ws)
+
+	optimizer = AdamW(list(model.parameters()) + list(adaptive_loss_weights.parameters()),
+        lr=config['lr_init'], weight_decay=config['weight_decay'])
+
 	# Decay LR from lr_init → eta_min over 'num_epochs'
 	scheduler = CosineAnnealingLR(optimizer, T_max=config['num_epochs'], eta_min=config['eta_min'])
 
@@ -366,17 +381,20 @@ def main():
 	scaler = GradScaler(device=device.type)
 
 	for epoch in range(1, config['num_epochs'] + 1):
+		print("*" * 50)
 		print(f"Epoch: {epoch:03d}/{config['num_epochs']:03d}")
 		print("*" * 50)
 
 		# Initialize preloader before training loop (once per epoch)
 		smpl_preloader = SMPLPreloader(smpl_male_model, smpl_feml_model, device)
 
-		train_loss, train_mpjpe = train(model, train_loader, device, smpl_preloader, config, optimizer, scaler)
+		print("-" * 30)
+		train_loss, train_mpjpe = train(model, train_loader, device, smpl_preloader, config, adaptive_loss_weights, optimizer, scaler)
 		print(f"Training (Epoch {epoch:03d}) - Loss: {train_loss:.4f} | MPJPE: {train_mpjpe*1000:.4f} mm")
 		print("-" * 30)
 
-		valid_loss, valid_mpjpe = validate(model, valid_loader, device, smpl_preloader, config)
+		print("=" * 30)
+		valid_loss, valid_mpjpe = validate(model, valid_loader, device, smpl_preloader, config, adaptive_loss_weights)
 		print(f"Validation (Epoch {epoch:03d}) - Loss: {valid_loss:.4f} | MPJPE: {valid_mpjpe*1000:.4f} mm")
 		print("=" * 30)
 
@@ -387,7 +405,25 @@ def main():
 		current_lr = scheduler.get_last_lr()[0]
 		print(f"Epoch {epoch:03d} - lr: {current_lr:.2e} ({current_lr:.6f}) ({config['lr_init']:.2e} → {config['eta_min']:.2e})")
 
-		# Log the losses to TensorBoard
+		# Get the 5 weights as a CPU tensor and print them
+		w_eff = torch.exp(-adaptive_loss_weights.log_vars.data).cpu().tolist()
+		print(f"[Epoch {epoch:3d}] Loss weights:"
+				f" joints={w_eff[0]:.3f},"
+				f" betas={w_eff[1]:.3f},"
+				f" global_orient={w_eff[2]:.3f},"
+				f" body_pose={w_eff[3]:.3f},"
+				f" transl={w_eff[4]:.3f}")
+
+		# Log the loss weights to TensorBoard
+		writer.add_scalars('LossWeights', {
+			'joints': w_eff[0],
+			'betas': w_eff[1],
+			'global_orient': w_eff[2],
+			'body_pose': w_eff[3],
+			'transl': w_eff[4]
+		}, epoch)
+
+		# Log the losses, MPJPE, and learning rate to TensorBoard
 		writer.add_scalar('Loss/train', train_loss, epoch)
 		writer.add_scalar('Loss/valid', valid_loss, epoch)
 		writer.add_scalar('MPJPE/train', train_mpjpe*1000, epoch)
