@@ -257,6 +257,7 @@ def main():
 		'num_epochs':			100,
 		'save_model_every':		5,
 		'log_hist_every':		5,
+		'early_stop_patience':	10,
 
 		# Hyperparameters (tune within these ranges; defaults in parentheses)
 		'lr_init':				0.001,	# 1e-4(0.0001) to 1e-3(0.001)						(default: 3e-4(0.0003))
@@ -371,6 +372,7 @@ def main():
 
 	# 4. Training Loop
 	best_valid_loss = float('inf')
+	no_improve_epochs = 0	# counter for early stopping
 
 	train_valid_losses = {
 		'epoch': [],
@@ -443,10 +445,19 @@ def main():
 		# Best‐model checkpoint
 		if valid_loss < best_valid_loss:
 			best_valid_loss = valid_loss
+			no_improve_epochs = 0
 			save_checkpoint(
 				os.path.join(run_dir, 'best_model.pth'),
 				epoch, model, optimizer, scheduler,
 				train_valid_losses, best_valid_loss, scaler)
+		else:
+			no_improve_epochs += 1
+			print(f"No improvement in validation loss for {no_improve_epochs} epochs.")
+
+		# Early stopping if no improvement in validation loss for `early_stopping_patience` epochs
+		if no_improve_epochs >= config['early_stopping_patience']:
+			print(f"Stopping early at epoch {epoch} after {no_improve_epochs} epochs with no improvement.")
+			break
 
 		# Periodic checkpoint
 		if epoch % config['save_model_every'] == 0 or epoch == config['num_epochs']:
