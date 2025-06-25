@@ -236,30 +236,33 @@ def print_mean_of_model_weights_and_gradients(model, message="Model Parameters a
 			print(f"{name}:\tmean={param.data.mean():.6f}, grad={param.grad.mean().item() if param.grad is not None else 'None'}")
 
 def visualize_smpl_with_joints(model,
-                               body_pose_1, global_orient_1, betas_1, transl_1,
+                               body_pose_1=None, global_orient_1=None, betas_1=None, transl_1=None,
                                joints_1=None,
                                body_pose_2=None, global_orient_2=None, betas_2=None, transl_2=None,
                                joints_2=None,
-                               show_ground=True, joint_radius=0.015, ground_size=3.0):
+                               show_ground=True, straight_view=True, joint_radius=0.015, ground_size=3.0):
 
-    mesh_color_1 = (0.2, 0.6, 1.0, 1.0)	# blue
-    mesh_color_2 = (0.6, 0.2, 1.0, 1.0)	# purple
+    mesh_color_1 = (0.2, 0.6, 1.0, 1.0)    # blue
+    mesh_color_2 = (0.6, 0.2, 1.0, 1.0)    # purple
+    joints_color_1 = (0.9, 0.3, 0.2, 1.0)  # orange/red
+    joints_color_2 = (0.2, 0.9, 0.3, 1.0)  # green
     faces = model.faces
     scene = pyrender.Scene()
 
     # --- SMPL Model 1
-    smpl_output_1 = model(body_pose=body_pose_1, global_orient=global_orient_1, betas=betas_1, transl=transl_1)
-    vertices_1 = smpl_output_1.vertices.detach().cpu().numpy().squeeze()
-    mesh_1 = trimesh.Trimesh(vertices_1, faces, process=False)
-    mesh_1 = pyrender.Mesh.from_trimesh(mesh_1, material=pyrender.MetallicRoughnessMaterial(baseColorFactor=mesh_color_1))
-    scene.add(mesh_1)
+    if body_pose_1 is not None and global_orient_1 is not None and betas_1 is not None and transl_1 is not None:
+        smpl_output_1 = model(body_pose=body_pose_1, global_orient=global_orient_1, betas=betas_1, transl=transl_1)
+        vertices_1 = smpl_output_1.vertices.detach().cpu().numpy().squeeze()
+        mesh_1 = trimesh.Trimesh(vertices_1, faces, process=False)
+        mesh_1 = pyrender.Mesh.from_trimesh(mesh_1, material=pyrender.MetallicRoughnessMaterial(baseColorFactor=mesh_color_1))
+        scene.add(mesh_1)
 
     # --- Optional Joint Markers (Set 1)
     if joints_1 is not None:
         for joint in joints_1:
             sphere = trimesh.creation.icosphere(radius=joint_radius)
             sphere.apply_translation(joint)
-            marker_mesh = pyrender.Mesh.from_trimesh(sphere, smooth=False)
+            marker_mesh = pyrender.Mesh.from_trimesh(sphere, material=pyrender.MetallicRoughnessMaterial(baseColorFactor=joints_color_1), smooth=False)
             scene.add(marker_mesh)
 
     # --- SMPL Model 2
@@ -275,7 +278,7 @@ def visualize_smpl_with_joints(model,
             for joint in joints_2:
                 sphere = trimesh.creation.icosphere(radius=joint_radius)
                 sphere.apply_translation(joint)
-                marker_mesh = pyrender.Mesh.from_trimesh(sphere, smooth=False)
+                marker_mesh = pyrender.Mesh.from_trimesh(sphere, material=pyrender.MetallicRoughnessMaterial(baseColorFactor=joints_color_2), smooth=False)
                 scene.add(marker_mesh)
 
     # --- Ground plane
@@ -284,8 +287,26 @@ def visualize_smpl_with_joints(model,
         ground.apply_translation([0, 0, -0.005])
         scene.add(pyrender.Mesh.from_trimesh(ground, smooth=False))
 
-    # --- Show scene
-    pyrender.Viewer(scene, use_raymond_lighting=True)
+    # --- Camera setup (looking straight at the model from the front)
+    if straight_view:
+        camera = pyrender.PerspectiveCamera(yfov=np.pi / 3.0)
+
+        # Camera pose (eye position: [0, 0, 2] → 2m in front of model)
+        camera_pose = np.array([
+            [1.0, 0.0,  0.0,  1.0],   # X-axis (shift right by 1 meter)
+            [0.0, 1.0,  0.0,  1.25],   # Y-axis (shift up by 1.25 meter)
+            [0.0, 0.0,  1.0,  2.0],   # Z-axis (2m away in front)
+            [0.0, 0.0,  0.0,  1.0]
+        ])
+
+        scene.add(camera, pose=camera_pose)
+
+        # Add light for visibility
+        light = pyrender.DirectionalLight(color=np.ones(3), intensity=2.0)
+        scene.add(light, pose=camera_pose)
+
+    # --- Show scene (Viewer without default rotation control)
+    pyrender.Viewer(scene, use_raymond_lighting=True, run_in_thread=False, viewport_size=(800, 600), use_perspective_camera=True)
 
 def plot_single_channel(input_image, batch_idx=0, title='Image'):
 	if isinstance(input_image, torch.Tensor):
