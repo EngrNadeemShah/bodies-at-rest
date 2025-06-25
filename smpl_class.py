@@ -1,7 +1,4 @@
-import numpy as np
 import torch
-import torch.nn.functional as F
-from utils import apply_global_rigid_transformations, convert_axis_angle_to_rotation_matrix
 
 class SMPLPreloader:
 	def __init__(self, smpl_male, smpl_feml, device):
