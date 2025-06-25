@@ -36,5 +36,5 @@ synthetic_data/
 # Images and videos
 *.png
 
-# TensorBoard logs (ignores tb_logs folder anywhere in the project)
-tb_logs/
+# Ignore the runs/ dir because it contains all the model related logging and checkpoints.
+runs/
