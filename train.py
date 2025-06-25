@@ -5,24 +5,22 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
 import numpy as np
-import argparse
 import sys
 from datasets import HDF5Dataset
 from models_multi_head import PressureNetMultiHead as PressureNet
 from smpl_class import SMPLPreloader
 import smplx
 from time import time
-from tqdm import tqdm
-import pickle as pkl
 from utils import print_error_summary, retrieve_data_file_paths, plot_input_channels, format_stats, print_mean_of_model_weights_and_gradients, get_preprocessed_hdf5_path, save_checkpoint
 from datetime import datetime
 import os
 from torch.amp import GradScaler, autocast
 from torchinfo import summary
-from torch.utils.data import Subset
 import torchvision.transforms as T
-from torch.utils.tensorboard import SummaryWriter
+from tensorboardX import SummaryWriter
 from utils_geometry import axis_angle_to_matrix
+from typing import List
+import subprocess, json
 
 np.set_printoptions(threshold=sys.maxsize, precision=4, suppress=True)
 
@@ -67,8 +65,8 @@ class AdaptiveLoss(nn.Module):
 		return total
 
 
-def train(model, train_loader, device, smpl_preloader, config, adaptive_loss_weights, optimizer, scaler):
-	torch.autograd.set_detect_anomaly(True)
+def train(model, train_loader, device, smpl_preloader, CONFIG, adaptive_loss_weights, optimizer, scaler):
+	# torch.autograd.set_detect_anomaly(True)
 	print(f"\nTraining ...")
 
 	running_loss = 0.0
@@ -158,7 +156,7 @@ def train(model, train_loader, device, smpl_preloader, config, adaptive_loss_wei
 	avg_mpjpe = running_mpjpe / total_samples
 	return avg_loss, avg_mpjpe
 
-def validate(model, valid_loader, device, smpl_preloader, config, adaptive_loss_weights):
+def validate(model, valid_loader, device, smpl_preloader, CONFIG, adaptive_loss_weights):
 	print(f"\nValidating ...")
 
 	running_loss = 0.0
@@ -236,75 +234,111 @@ def validate(model, valid_loader, device, smpl_preloader, config, adaptive_loss_
 	return avg_loss, avg_mpjpe
 
 def main():
+	start_time = time()
 	# 0. Initializations and Configurations
-	# 0.1. Parse the command line arguments
-	# parser = argparse.ArgumentParser(description='Train PressureNet Model')
-	# parser.add_argument('--mod', type=int, choices=[1, 2], required=True, help='choose a network (1 or 2)')
-	# parser.add_argument('--pmr', action='store_true', default=False, help='run PMR on input & precomputed spatial maps')
-	# parser.add_argument('--verbose', action='store_true', default=False, help='verbose')
-	# parser.add_argument('--use_relu', action='store_true', default=False, help='use ReLU in place of Tanh in middle layers of CNN')
-	# args = parser.parse_args()
+	# Set the configuration parameters
+	CONFIG = {
+		"run": {
+			"timestamp": datetime.now().strftime("%Y%m%d_%H%M%S"),
+			"verbose": False,
+			"checkpoint": {
+				"save_every_epochs": 5,
+				"early_stopping_patience": 10,
+				"log_hist_every": 5,
+			},
+		},
 
-	# 0.2. Set the configuration parameters
-	config = {
-		'mod':					1,		# args.mod,
-		'pmr':					False,	# args.pmr,
-		'verbose':				False,	# args.verbose,
-		'use_relu':				True,	# args.use_relu,
+		"paths": {
+			"run_dir": '',
+			"smpl_male_model_path": "smpl/models/basicmodel_m_lbs_10_207_0_v1.0.0.pkl",
+			"smpl_feml_model_path": "smpl/models/basicModel_f_lbs_10_207_0_v1.0.0.pkl",
+			# "hdf5_file_name": "preprocessed_mod1_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_1__normalize_per_image_True.hdf5",
+			# "hdf5_file_name": "preprocessed_mod2_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_2__normalize_per_image_True.hdf5",
+			# "hdf5_file_name": "preprocessed_straight_limbs_mod1_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_1__normalize_per_image_True_no_75mm.hdf5",
+			"hdf5_file_name": "preprocessed_straight_limbs_mod1_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_1__normalize_per_image_True.hdf5",
+		},
 
-		# Not in args
-		'batch_size':			512,
-		'num_epochs':			100,
-		'save_model_every':		5,
-		'log_hist_every':		5,
-		'early_stop_patience':	10,
+		"training": {
+			"batch_size": 512,
+			"num_epochs": 100,
+			"use_relu": True
+		},
 
-		# Hyperparameters (tune within these ranges; defaults in parentheses)
-		'lr_init':				0.001,	# 1e-4(0.0001) to 1e-3(0.001)						(default: 3e-4(0.0003))
-		'weight_decay':  		0.0005,	# L2 regularization: 1e-5(0.00001) to 1e-2(0.01)	(default: 5e-4(0.0005))
-		'eta_min':				1e-6,	# LR floor for CosineAnnealing: 0 to 1e-5(0.00001)	(default: 1e-6(0.000001))
+		"optimizer": {
+			"type": "AdamW",
+			"lr_init": 1e-3,		# tune: 1e-4 to 1e-3 -> (default: 1e-4)
+			"weight_decay": 5e-4,	# L2 regularization | tune: 1e-5 to 1e-2 -> (default: 5e-4)
+			"scheduler": {
+				"type": "CosineAnnealingLR",
+				"eta_min": 1e-6,	# LR floor for CosineAnnealing | tune: 0 → 1e-5 -> (default: 1e-6)
+			},
+		},
 
-		# For DataLoader
-		'pin_memory':			True,	# the data loader will copy Tensors into device/CUDA pinned memory before returning them.
-		'num_workers_train':	28,		# how many subprocesses to use for data loading (default: 0)
-		'num_workers_valid':	28,		# use 0 for validation to avoid unnecessary overhead (os.cpu_count() - 2)
-		'prefetch_factor_train':2,		# no. of batches loaded in advance by each worker (default: 2 if num_workers > 0)
-		'prefetch_factor_valid':2,	# no. of batches loaded in advance by each worker (default: None if num_workers == 0)
-		'persistent_workers_train':	True,	# the data loader will not shut down the worker processes after a dataset has been consumed once.
-		'persistent_workers_valid':	True,	# this allows to maintain the workers Dataset instances alive (default: False)
+		"dataloader": {
+			"pin_memory": True,
+			"train_workers": 28,
+			"valid_workers": 28,
+			"prefetch_train": 2,
+			"prefetch_valid": 2,
+			"persistent_workers_train": True,
+			"persistent_workers_valid": True,
+			},
+
+		"hardware": {},
+		}
+
+	# Define the hyperparameters which you want to track in TensorBoard
+	HYPERPARAMS = {
+		"lr_init":      CONFIG["optimizer"]["lr_init"],
+		"weight_decay": CONFIG["optimizer"]["weight_decay"],
+		"batch_size":   CONFIG["training"]["batch_size"],
+		"use_relu":     CONFIG["training"]["use_relu"],
 	}
 
-	# 0.4. Check if CUDA is available
+	# Check if CUDA is available
 	is_cuda_available = torch.cuda.is_available()
 	device = torch.device("cuda" if is_cuda_available else "cpu")
 
 	# Print the device information
-	print(f"Device (CUDA/CPU):  {device}")
 	if is_cuda_available:
-		print(f"GPU Name:           {torch.cuda.get_device_name(0)}")
-		print(f"Device Count:       {torch.cuda.device_count()}")
-		print(f"Current Device:     {torch.cuda.current_device()}")
+		CONFIG["hardware"]["gpu_available"]	= True
+		CONFIG["hardware"]["gpu_count"]		= torch.cuda.device_count()
+		CONFIG["hardware"]["gpu_name"]		= torch.cuda.get_device_name(0)
+		CONFIG["hardware"]["gpu_devices"] = [
+			torch.cuda.get_device_name(i)
+			for i in range(torch.cuda.device_count())]
+		CONFIG["hardware"]["current_device"]= torch.cuda.current_device()
+		CONFIG["hardware"]["cpu_count"] = os.cpu_count()
 	else:
-		print("CUDA is not available, using CPU.")
+		CONFIG["hardware"]["gpu_available"]	= False
+		CONFIG["hardware"]["gpu_count"]		= 0
+		CONFIG["hardware"]["gpu_name"]		= "N/A"
+		CONFIG["hardware"]["current_device"]= "cpu"
+		CONFIG["hardware"]["cpu_count"] = os.cpu_count()
+	print(f"Device (CUDA/CPU):  {device}")
 
-	# 0.5. Create a unique directory using timestamp for saving the best model, and snapshots of model & losses
-	run_timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-	run_dir = f"runs/run_{run_timestamp}"
-	os.makedirs(run_dir, exist_ok=True)
+	# Create the run directory and the path for HDF5 file
+	CONFIG["paths"]["run_dir"] = os.path.join("runs", CONFIG["run"]["timestamp"])
+	os.makedirs(CONFIG["paths"]["run_dir"], exist_ok=True)
+	hdf5_file_path = get_preprocessed_hdf5_path(CONFIG["paths"]["hdf5_file_name"])
 
-	# 0.6. Initialize TensorBoard writer
-	writer = SummaryWriter(log_dir=os.path.join(run_dir, 'tb_logs'))
+	# Save the configuration to a JSON file
+	config_dump = {
+		"config": CONFIG,
+		# "git_commit": subprocess.check_output(["git","rev-parse","HEAD"]).decode().strip(),
+		"torch_version": torch.__version__,
+		"python_version": sys.version.split()[0],
+	}
+	with open(os.path.join(CONFIG["paths"]["run_dir"], "config.json"), "w") as f:
+		json.dump(config_dump, f, indent=2)
+
+	# Initialize TensorBoard writer
+	writer = SummaryWriter(log_dir=CONFIG["paths"]["run_dir"])
+
 
 	# 1. Data Preparation
 
 	# Create the train and valid datasets and data loaders
-	# HDF5 file paths
-	# hdf5_file_name = 'preprocessed_mod1_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_1__normalize_per_image_True.hdf5'
-	# hdf5_file_name = 'preprocessed_mod2_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_2__normalize_per_image_True.hdf5'
-	# hdf5_file_name = 'preprocessed_straight_limbs_mod1_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_1__normalize_per_image_True_no_75mm.hdf5'
-	hdf5_file_name = 'preprocessed_straight_limbs_mod1_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_1__normalize_per_image_True.hdf5'
-
-	hdf5_file_path = get_preprocessed_hdf5_path(hdf5_file_name)
 
 	# Prepare the transforms for the dataset
 	# Caclulated on train_straight_limbs_hdf5_mod1_input_images for all 3 channels (for male & female, then averaged)
@@ -315,32 +349,19 @@ def main():
 	train_dataset = HDF5Dataset(hdf5_file_path=hdf5_file_path, split='train', transform=transform)
 	valid_dataset = HDF5Dataset(hdf5_file_path=hdf5_file_path, split='test', transform=transform)
 
-	train_loader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True,	num_workers=config['num_workers_train'], pin_memory=config['pin_memory'], prefetch_factor=config['prefetch_factor_train'], persistent_workers=config['persistent_workers_train'])
-	valid_loader = DataLoader(valid_dataset, batch_size=config['batch_size'], shuffle=False,num_workers=config['num_workers_valid'], pin_memory=config['pin_memory'], prefetch_factor=config['prefetch_factor_valid'], persistent_workers=config['persistent_workers_valid'])
-
-	print(f"Learning Rate (Initial):	{config['lr_init']}")
-	print(f"Weight Decay:			{config['weight_decay']}")
-	print(f"Eta Min (Cosine Annealing):	{config['eta_min']}")
-	print(f"Use ReLU:				{config['use_relu']}")
-	print(f"Mod:					{config['mod']}")
-	print(f"PMR:					{config['pmr']}")
-	print(f"Number of Train Examples:		{len(train_dataset)}")
-	print(f"Number of Valid Examples:		{len(valid_dataset)}")
-	print(f"Number of Train Batches:		{len(train_loader)}")
-	print(f"Number of Valid Batches:		{len(valid_loader)}")
-	print(f"Batch Size:				{config['batch_size']}")
-	print(f"Number of Epochs:			{config['num_epochs']}")
-	print(f"num_workers (train):			{config['num_workers_train']}")
-	print(f"num_workers (valid):			{config['num_workers_valid']}")
-	print(f"prefetch_factor (train):		{config['prefetch_factor_train']}")
-	print(f"prefetch_factor (valid):		{config['prefetch_factor_valid']}")
-	print(f"persistent_workers (train):		{config['persistent_workers_train']}")
-	print(f"persistent_workers (valid):		{config['persistent_workers_valid']}")
-	print(f"pin_memory (both):			{config['pin_memory']}")
+	train_loader = DataLoader(train_dataset, batch_size=CONFIG['training']['batch_size'], shuffle=True,	num_workers=CONFIG['dataloader']['train_workers'], pin_memory=CONFIG['dataloader']['pin_memory'], prefetch_factor=CONFIG['dataloader']['prefetch_train'], persistent_workers=CONFIG['dataloader']['persistent_workers_train'])
+	valid_loader = DataLoader(valid_dataset, batch_size=CONFIG['training']['batch_size'], shuffle=False,num_workers=CONFIG['dataloader']['valid_workers'], pin_memory=CONFIG['dataloader']['pin_memory'], prefetch_factor=CONFIG['dataloader']['prefetch_valid'], persistent_workers=CONFIG['dataloader']['persistent_workers_valid'])
 
 
 	# 2. Define the model, optimizer, and loss functions
-	model = PressureNet(in_channels=train_dataset.num_channels, use_relu=config['use_relu']).to(device)
+	model = PressureNet(in_channels=train_dataset.num_channels, use_relu=CONFIG['training']['use_relu']).to(device)
+
+	# Logging the model graph
+	dummy = torch.zeros(
+		(1, train_dataset.num_channels, 128, 54),
+		device=device,
+		dtype=torch.float32)
+	writer.add_graph(model, (dummy,))
 
 
 	# — adaptive weights for joint & SMPL losses —
@@ -350,29 +371,30 @@ def main():
 	# adaptive_loss_weights.log_vars.data = -torch.log(init_ws)
 
 	optimizer = AdamW(list(model.parameters()) + list(adaptive_loss_weights.parameters()),
-        lr=config['lr_init'], weight_decay=config['weight_decay'])
+        lr=CONFIG['optimizer']['lr_init'], weight_decay=CONFIG['optimizer']['weight_decay'])
 
 	# Decay LR from lr_init → eta_min over 'num_epochs'
-	scheduler = CosineAnnealingLR(optimizer, T_max=config['num_epochs'], eta_min=config['eta_min'])
+	scheduler = CosineAnnealingLR(optimizer, T_max=CONFIG['training']['num_epochs'], eta_min=CONFIG['optimizer']['scheduler']['eta_min'])
 
-	if config['verbose']:
+	if CONFIG['run']['verbose']:
 		print("\nModel Summary:")
 		print(model)
 		print()
-		summary(model, input_size=(config['batch_size'], train_dataset.num_channels, 128, 54), device=device.type)
+		summary(model, input_size=(CONFIG['training']['batch_size'], train_dataset.num_channels, 128, 54), device=device.type)
 
 
 	# 3. Load SMPL models
-	smpl_male_model_path = 'smpl/models/basicmodel_m_lbs_10_207_0_v1.0.0.pkl'
-	smpl_feml_model_path = 'smpl/models/basicModel_f_lbs_10_207_0_v1.0.0.pkl'
-
-	smpl_male_model = smplx.SMPL(smpl_male_model_path).to(device)
-	smpl_feml_model = smplx.SMPL(smpl_feml_model_path).to(device)
+	smpl_male_model = smplx.SMPL(CONFIG["paths"]["smpl_male_model_path"]).to(device)
+	smpl_feml_model = smplx.SMPL(CONFIG["paths"]["smpl_feml_model_path"]).to(device)
 
 
 	# 4. Training Loop
-	best_valid_loss = float('inf')
-	no_improve_epochs = 0	# counter for early stopping
+	best_valid_loss		= float('inf')
+	best_valid_epoch	= -1
+	best_train_loss		= None
+	best_train_mpjpe	= None
+	best_valid_mpjpe	= None
+	epochs_without_improvement = 0	# counter for early stopping
 
 	train_valid_losses = {
 		'epoch': [],
@@ -382,89 +404,126 @@ def main():
 
 	scaler = GradScaler(device=device.type)
 
-	for epoch in range(1, config['num_epochs'] + 1):
-		print("*" * 50)
-		print(f"Epoch: {epoch:03d}/{config['num_epochs']:03d}")
-		print("*" * 50)
+	try:
+		for epoch in range(1, CONFIG['training']['num_epochs'] + 1):
+			print("*" * 50)
+			print(f"Epoch: {epoch:03d}/{CONFIG['training']['num_epochs']:03d}")
+			print("*" * 50)
 
-		# Initialize preloader before training loop (once per epoch)
-		smpl_preloader = SMPLPreloader(smpl_male_model, smpl_feml_model, device)
+			# Initialize preloader before training loop (once per epoch)
+			smpl_preloader = SMPLPreloader(smpl_male_model, smpl_feml_model, device)
 
-		print("-" * 30)
-		train_loss, train_mpjpe = train(model, train_loader, device, smpl_preloader, config, adaptive_loss_weights, optimizer, scaler)
-		print(f"Training (Epoch {epoch:03d}) - Loss: {train_loss:.4f} | MPJPE: {train_mpjpe*1000:.4f} mm")
-		print("-" * 30)
+			print("-" * 30)
+			train_loss, train_mpjpe = train(model, train_loader, device, smpl_preloader, CONFIG, adaptive_loss_weights, optimizer, scaler)
+			print(f"Training (Epoch {epoch:03d}) - Loss: {train_loss:.4f} | MPJPE: {train_mpjpe*1000:.4f} mm")
+			print("-" * 30)
 
-		print("=" * 30)
-		valid_loss, valid_mpjpe = validate(model, valid_loader, device, smpl_preloader, config, adaptive_loss_weights)
-		print(f"Validation (Epoch {epoch:03d}) - Loss: {valid_loss:.4f} | MPJPE: {valid_mpjpe*1000:.4f} mm")
-		print("=" * 30)
+			print("=" * 30)
+			valid_loss, valid_mpjpe = validate(model, valid_loader, device, smpl_preloader, CONFIG, adaptive_loss_weights)
+			print(f"Validation (Epoch {epoch:03d}) - Loss: {valid_loss:.4f} | MPJPE: {valid_mpjpe*1000:.4f} mm")
+			print("=" * 30)
 
-		# Update the learning rate
-		scheduler.step()
+			# Update the learning rate
+			scheduler.step()
 
-		# Print the current learning rate
-		current_lr = scheduler.get_last_lr()[0]
-		print(f"Epoch {epoch:03d} - lr: {current_lr:.2e} ({current_lr:.6f}) ({config['lr_init']:.2e} → {config['eta_min']:.2e})")
+			# Print the current learning rate
+			current_lr = scheduler.get_last_lr()[0]
+			print(f"Epoch {epoch:03d} - lr: {current_lr:.2e} ({current_lr:.6f}) ({CONFIG['optimizer']['lr_init']:.2e} → {CONFIG['optimizer']['scheduler']['eta_min']:.2e})")
 
-		# Get the 5 weights as a CPU tensor and print them
-		w_eff = torch.exp(-adaptive_loss_weights.log_vars.data).cpu().tolist()
-		print(f"[Epoch {epoch:3d}] Loss weights:"
-				f" joints={w_eff[0]:.3f},"
-				f" betas={w_eff[1]:.3f},"
-				f" global_orient={w_eff[2]:.3f},"
-				f" body_pose={w_eff[3]:.3f},"
-				f" transl={w_eff[4]:.3f}")
+			# Get the 5 weights as a CPU tensor and print them
+			w_eff = torch.exp(-adaptive_loss_weights.log_vars.data).cpu().tolist()
+			print(f"[Epoch {epoch:3d}] Loss weights:"
+					f" joints={w_eff[0]:.3f},"
+					f" betas={w_eff[1]:.3f},"
+					f" global_orient={w_eff[2]:.3f},"
+					f" body_pose={w_eff[3]:.3f},"
+					f" transl={w_eff[4]:.3f}")
 
-		# Log the loss weights to TensorBoard
-		writer.add_scalars('LossWeights', {
-			'joints': w_eff[0],
-			'betas': w_eff[1],
-			'global_orient': w_eff[2],
-			'body_pose': w_eff[3],
-			'transl': w_eff[4]
-		}, epoch)
+			# Log the loss weights to TensorBoard
+			writer.add_scalars('LossWeights', {
+				'joints': w_eff[0],
+				'betas': w_eff[1],
+				'global_orient': w_eff[2],
+				'body_pose': w_eff[3],
+				'transl': w_eff[4]
+			}, epoch)
 
-		# Log the losses, MPJPE, and learning rate to TensorBoard
-		writer.add_scalar('Loss/train', train_loss, epoch)
-		writer.add_scalar('Loss/valid', valid_loss, epoch)
-		writer.add_scalar('MPJPE/train', train_mpjpe*1000, epoch)
-		writer.add_scalar('MPJPE/valid', valid_mpjpe*1000, epoch)
-		writer.add_scalar('LR', current_lr, epoch)
+			# Log the losses, MPJPE, and learning rate to TensorBoard
+			writer.add_scalar('Loss/train', train_loss, epoch)
+			writer.add_scalar('Loss/valid', valid_loss, epoch)
+			writer.add_scalar('MPJPE/train', train_mpjpe*1000, epoch)
+			writer.add_scalar('MPJPE/valid', valid_mpjpe*1000, epoch)
+			writer.add_scalar('LR', current_lr, epoch)
 
-		# Save the losses in a dictionary
-		train_valid_losses['epoch'].append(epoch)
-		train_valid_losses['train_loss'].append(train_loss)
-		train_valid_losses['valid_loss'].append(valid_loss)
+			# Save the losses in a dictionary
+			train_valid_losses['epoch'].append(epoch)
+			train_valid_losses['train_loss'].append(train_loss)
+			train_valid_losses['valid_loss'].append(valid_loss)
 
-		# Log weight & bias histograms every `log_hist_every` epochs
-		if epoch % config['log_hist_every'] == 0:
-			for name, param in model.named_parameters():
-				writer.add_histogram(name, param, epoch)
+			# Log weight & bias histograms every `log_hist_every` epochs
+			if epoch % CONFIG['run']['checkpoint']['log_hist_every'] == 0:
+				for name, param in model.named_parameters():
+					# 1) log their weights
+					writer.add_histogram(name, param, epoch)
+					# 2) log their gradients (if computed)
+					if param.grad is not None:
+						writer.add_histogram(f"{name}.grad", param.grad, epoch)
 
-		# Best‐model checkpoint
-		if valid_loss < best_valid_loss:
-			best_valid_loss = valid_loss
-			no_improve_epochs = 0
-			save_checkpoint(
-				os.path.join(run_dir, 'best_model.pth'),
-				epoch, model, optimizer, scheduler,
-				train_valid_losses, best_valid_loss, scaler)
-		else:
-			no_improve_epochs += 1
-			print(f"No improvement in validation loss for {no_improve_epochs} epochs.")
+			# Best‐model checkpoint
+			if valid_loss < best_valid_loss:
+				best_valid_epoch			= epoch
+				best_valid_loss		= valid_loss
+				best_train_loss		= train_loss
+				best_train_mpjpe	= train_mpjpe
+				best_valid_mpjpe	= valid_mpjpe
+				epochs_without_improvement = 0
+				save_checkpoint(
+					os.path.join(CONFIG["paths"]["run_dir"], 'best_model.pth'),
+					epoch, model, optimizer, scheduler,
+					train_valid_losses, best_valid_loss, scaler)
+			else:
+				epochs_without_improvement += 1
+				print(f"No improvement in validation loss for {epochs_without_improvement} epochs.")
 
-		# Early stopping if no improvement in validation loss for `early_stopping_patience` epochs
-		if no_improve_epochs >= config['early_stopping_patience']:
-			print(f"Stopping early at epoch {epoch} after {no_improve_epochs} epochs with no improvement.")
-			break
+			# Early stopping if no improvement in validation loss for `early_stopping_patience` epochs
+			if epochs_without_improvement >= CONFIG['run']['checkpoint']['early_stopping_patience']:
+				print(f"Stopping early at epoch {epoch} after {epochs_without_improvement} epochs with no improvement.")
+				break
 
-		# Periodic checkpoint
-		if epoch % config['save_model_every'] == 0 or epoch == config['num_epochs']:
-			save_checkpoint(
-				os.path.join(run_dir, f'ckpt_epoch{epoch:03d}_vloss{valid_loss:.4f}.pth'),
-				epoch, model, optimizer, scheduler,
-				train_valid_losses, best_valid_loss, scaler)
+			# Periodic checkpoint
+			if epoch % CONFIG['run']['checkpoint']['save_every_epochs'] == 0 or epoch == CONFIG['training']['num_epochs']:
+				save_checkpoint(
+					os.path.join(CONFIG["paths"]["run_dir"], f'ckpt_epoch{epoch:03d}_vloss{valid_loss:.4f}.pth'),
+					epoch, model, optimizer, scheduler,
+					train_valid_losses, best_valid_loss, scaler)
+
+	finally:
+		# Write out a simple results.json for downstream scripts
+		results = {
+			"best_valid_epoch":		best_valid_epoch,
+			"best_valid_loss":		best_valid_loss,
+			"train_loss_at_best":	best_train_loss,
+			'train_mpjpe_at_best':	best_train_mpjpe,
+			'valid_mpjpe_at_best':  best_valid_mpjpe,
+			"total_time_s":          time() - start_time
+		}
+		results_path = os.path.join(CONFIG["paths"]["run_dir"], "results.json")
+		with open(results_path, "w") as f:
+			json.dump(results, f, indent=2)
+
+		# Build your metrics dict
+		metrics_dict = {
+			'best_valid_epoch':   float(best_valid_epoch),
+			'best_valid_loss':     best_valid_loss,
+			'train_loss_at_best':   best_train_loss,
+			'train_mpjpe_at_best':  best_train_mpjpe,
+			'valid_mpjpe_at_best':  best_valid_mpjpe,
+		}
+
+		# One‐shot hparams write
+		writer.add_hparams(HYPERPARAMS, metrics_dict)
+		writer.flush()
+		writer.close()
 
 if __name__ == '__main__':
 	main()
