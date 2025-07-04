@@ -184,7 +184,7 @@ def train(model, train_loader, device, smpl_preloader, CONFIG, adaptive_loss_wei
 		print(f"Global: {global_orient_loss.item():.4f}", end='\t')
 		print(f"Body: {body_pose_loss.item():.4f}", end='\t')
 		print(f"Total: {batch_loss.item():.4f}", end='\t')
-		print(f"MPJPE: {batch_mpjpe.item()*1000:.1f} mm", end='\n')
+		print(f"MPJPE: {batch_mpjpe.item()*100:.1f} cm", end='\n')
 
 	avg_loss = running_loss / total_samples
 	avg_mpjpe = running_mpjpe / total_samples
@@ -260,7 +260,7 @@ def validate(model, valid_loader, device, smpl_preloader, CONFIG, adaptive_loss_
 
 			# Print stats
 			print(f"Loss: {batch_loss.item():.4f}",
-				  f"MPJPE: {batch_mpjpe.item()*1000:.1f} mm")
+				  f"MPJPE: {batch_mpjpe.item()*100:.1f} cm")
 
 	# Calculate per‐epoch averages
 	avg_loss = running_loss / total_samples
@@ -365,6 +365,13 @@ def main():
 	# Initialize TensorBoard writer
 	writer = SummaryWriter(log_dir=CONFIG["paths"]["run_dir"])
 
+	# Use a separate writer for hparam experiment logging
+	hparam_writer = SummaryWriter(log_dir=os.path.join(CONFIG["paths"]["run_dir"], "hparams"))
+
+	# Log HYPERPARAMS and dummy initial metrics to activate HPARAMS tab
+	hparam_writer.add_hparams(HYPERPARAMS, {'best_valid_loss': 0.0})
+	hparam_writer.close()
+
 
 	# 1. Data Preparation
 
@@ -446,12 +453,12 @@ def main():
 
 			print("-" * 30)
 			train_loss, train_mpjpe = train(model, train_loader, device, smpl_preloader, CONFIG, adaptive_loss_weights, optimizer, scaler)
-			print(f"Training (Epoch {epoch:03d}) - Loss: {train_loss:.4f} | MPJPE: {train_mpjpe*1000:.4f} mm")
+			print(f"Training (Epoch {epoch:03d}) - Loss: {train_loss:.4f} | MPJPE: {train_mpjpe*100:.4f} cm")
 			print("-" * 30)
 
 			print("=" * 30)
 			valid_loss, valid_mpjpe = validate(model, valid_loader, device, smpl_preloader, CONFIG, adaptive_loss_weights)
-			print(f"Validation (Epoch {epoch:03d}) - Loss: {valid_loss:.4f} | MPJPE: {valid_mpjpe*1000:.4f} mm")
+			print(f"Validation (Epoch {epoch:03d}) - Loss: {valid_loss:.4f} | MPJPE: {valid_mpjpe*100:.4f} cm")
 			print("=" * 30)
 
 			# Update the learning rate
@@ -482,8 +489,8 @@ def main():
 			# Log the losses, MPJPE, and learning rate to TensorBoard
 			writer.add_scalar('Loss/train', train_loss, epoch)
 			writer.add_scalar('Loss/valid', valid_loss, epoch)
-			writer.add_scalar('MPJPE/train', train_mpjpe*1000, epoch)
-			writer.add_scalar('MPJPE/valid', valid_mpjpe*1000, epoch)
+			writer.add_scalar('MPJPE/train', train_mpjpe*100, epoch)
+			writer.add_scalar('MPJPE/valid', valid_mpjpe*100, epoch)
 			writer.add_scalar('LR', current_lr, epoch)
 
 			# Save the losses in a dictionary
@@ -551,8 +558,13 @@ def main():
 			'valid_mpjpe_at_best':  best_valid_mpjpe,
 		}
 
-		# One‐shot hparams write
-		writer.add_hparams(HYPERPARAMS, metrics_dict)
+		# Log final evaluation metrics to SCALARS tab (step=0)
+		writer.add_scalar('Final/best_valid_epoch', best_valid_epoch, 0)
+		writer.add_scalar('Final/best_valid_loss', best_valid_loss, 0)
+		writer.add_scalar('Final/train_loss_at_best', best_train_loss, 0)
+		writer.add_scalar('Final/train_mpjpe_at_best', best_train_mpjpe * 100, 0)  # in cm
+		writer.add_scalar('Final/valid_mpjpe_at_best', best_valid_mpjpe * 100, 0)  # in cm
+
 		writer.flush()
 		writer.close()
 
