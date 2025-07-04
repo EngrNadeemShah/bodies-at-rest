@@ -134,6 +134,10 @@ def train(model, train_loader, device, smpl_preloader, CONFIG, adaptive_loss_wei
 		scaler.step(optimizer)						# apply the clipped step
 		scaler.update()								# update the scale for next iter
 
+		# Prevent log_vars from running away
+		with torch.no_grad():
+			adaptive_loss_weights.log_vars.data.clamp_(min=-5.0, max=+5.0)
+
 		# Accumulate loss
 		running_loss += batch_loss.item() * B
 
@@ -366,9 +370,10 @@ def main():
 
 	# — adaptive weights for joint & SMPL losses —
 	adaptive_loss_weights = AdaptiveLoss().to(device)
-	# init_ws = torch.tensor([1.0, 0.1, 0.1, 0.1, 0.1], device=device)
-	# # we want exp(-log_var) = w  =>  log_var = -log(w)
-	# adaptive_loss_weights.log_vars.data = -torch.log(init_ws)
+	# Initialize log_vars to sensible priors, e.g. if you want all wᵢ=1 except betas=0.1 at start:
+	init_ws = torch.tensor([1.0, 0.1, 1.0, 1.0, 1.0], device=device)
+	# we want exp(-log_var) = w  =>  log_var = -log(w)
+	adaptive_loss_weights.log_vars.data = -torch.log(init_ws)
 
 	optimizer = AdamW(list(model.parameters()) + list(adaptive_loss_weights.parameters()),
         lr=CONFIG['optimizer']['lr_init'], weight_decay=CONFIG['optimizer']['weight_decay'])
