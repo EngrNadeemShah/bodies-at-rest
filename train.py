@@ -384,7 +384,7 @@ def main():
 		std	=[41.360558, 27.982226, 8.824089])
 
 	train_dataset = HDF5Dataset(hdf5_file_path=hdf5_file_path, split='train', transform=transform)
-	valid_dataset = HDF5Dataset(hdf5_file_path=hdf5_file_path, split='test', transform=transform)
+	valid_dataset = HDF5Dataset(hdf5_file_path=hdf5_file_path, split='val', transform=transform)
 
 	train_loader = DataLoader(train_dataset, batch_size=CONFIG['training']['batch_size'], shuffle=True,	num_workers=CONFIG['dataloader']['train_workers'], pin_memory=CONFIG['dataloader']['pin_memory'], prefetch_factor=CONFIG['dataloader']['prefetch_train'], persistent_workers=CONFIG['dataloader']['persistent_workers_train'])
 	valid_loader = DataLoader(valid_dataset, batch_size=CONFIG['training']['batch_size'], shuffle=False,num_workers=CONFIG['dataloader']['valid_workers'], pin_memory=CONFIG['dataloader']['pin_memory'], prefetch_factor=CONFIG['dataloader']['prefetch_valid'], persistent_workers=CONFIG['dataloader']['persistent_workers_valid'])
