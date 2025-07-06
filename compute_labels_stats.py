@@ -17,7 +17,7 @@ def process_hdf5_labels(hdf5_path, output_filename='stats_train_labels_processed
 	"""Process train labels and save stats to CSV with multiple sheets"""
 	with h5py.File(hdf5_path, 'r') as file:
 		# Initialize Excel writer
-		writer = pd.ExcelWriter(output_filename, engine='xlsxwriter')
+		writer = pd.ExcelWriter(output_filename, engine='openpyxl')
 
 		# Process each group (train or test)
 		for split in ['train']:
