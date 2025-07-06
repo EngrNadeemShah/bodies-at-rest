@@ -36,9 +36,9 @@ avg = pd.read_excel(stats_path, sheet_name="avg_straight_limbs", engine="openpyx
 avg_std = torch.tensor(avg["std_dev"].values, dtype=torch.float32, device=device)
 
 # slice & reshape to match pred-tensor shapes
-joints_std        = avg_std[   0:   72].view(1, 24, 3)   # 24 joints × (x,y,z)
-betas_std         = avg_std[  72:   82].view(1, 10)      # 10 shape coefs
-transl_std        = avg_std[ 154:  157].view(1,  3)      # root translation (x,y,z)
+joints_std        = avg_std[  0:  72].reshape(1, 24, 3)   # 24 joints × (x,y,z)
+betas_std         = avg_std[ 72:  82].reshape(1, 10)      # 10 shape coefs
+transl_std        = avg_std[154: 157].reshape(1,  3)      # root translation (x,y,z)
 
 # std_devs of your ground-truth axis-angle magnitudes.
 global_orient_geo_std	= 0.149058
@@ -103,6 +103,14 @@ def train(model, train_loader, device, smpl_preloader, CONFIG, adaptive_loss_wei
 	running_mpjpe = 0.0
 	total_samples = 0
 
+	cumulative_losses = {
+		'joints': 0.0,
+		'betas': 0.0,
+		'global_orient': 0.0,
+		'body_pose': 0.0,
+		'transl': 0.0
+	}
+
 	model.train()
 	for idx, (inputs, ground_truth) in enumerate(train_loader, 1):
 		print(f"Batch: {idx:02}/{len(train_loader):02}", end='\t')
@@ -157,6 +165,9 @@ def train(model, train_loader, device, smpl_preloader, CONFIG, adaptive_loss_wei
 		losses = [joints_loss, betas_loss, global_orient_loss, body_pose_loss, transl_loss]
 		batch_loss = adaptive_loss_weights(losses)
 
+		for i, loss_i in zip(cumulative_losses.keys(), losses):
+			cumulative_losses[i] += loss_i.item() * B
+
 		# Backward pass and optimization (Outside the autocast context)
 		scaler.scale(batch_loss).backward()			# compute (scaled) grads
 		scaler.unscale_(optimizer)					# bring them back to real scale
@@ -180,15 +191,16 @@ def train(model, train_loader, device, smpl_preloader, CONFIG, adaptive_loss_wei
 		# Print stats
 		print(f"Joints: {joints_loss.item():.4f}", end='\t')
 		print(f"Betas: {betas_loss.item():.4f}", end='\t')
-		print(f"Transl: {transl_loss.item():.4f}", end='\t')
 		print(f"Global: {global_orient_loss.item():.4f}", end='\t')
 		print(f"Body: {body_pose_loss.item():.4f}", end='\t')
+		print(f"Transl: {transl_loss.item():.4f}", end='\t')
 		print(f"Total: {batch_loss.item():.4f}", end='\t')
 		print(f"MPJPE: {batch_mpjpe.item()*100:.1f} cm", end='\n')
 
 	avg_loss = running_loss / total_samples
 	avg_mpjpe = running_mpjpe / total_samples
-	return avg_loss, avg_mpjpe
+	avg_losses_dict = {k: v / total_samples for k, v in cumulative_losses.items()}
+	return avg_loss, avg_mpjpe, avg_losses_dict
 
 def validate(model, valid_loader, device, smpl_preloader, CONFIG, adaptive_loss_weights):
 	print(f"\nValidating ...")
@@ -196,6 +208,14 @@ def validate(model, valid_loader, device, smpl_preloader, CONFIG, adaptive_loss_
 	running_loss = 0.0
 	running_mpjpe = 0.0
 	total_samples = 0
+
+	cumulative_losses = {
+		'joints': 0.0,
+		'betas': 0.0,
+		'global_orient': 0.0,
+		'body_pose': 0.0,
+		'transl': 0.0
+	}
 
 	model.eval()
 	with torch.no_grad():
@@ -228,26 +248,29 @@ def validate(model, valid_loader, device, smpl_preloader, CONFIG, adaptive_loss_
 				body_pose_aa_gt		= smpl_params_gt[:, 13:82].reshape(-1, 23, 3)	# (B, 69) -> (B, 23, 3)
 				transl_gt			= smpl_params_gt[:, 82:85]						# (B, 3)
 
-				# — Losses —
-				# Joint positions (MPJPE), betas, translation
-				joints_loss	= criterion_joints(joints_pred, joints_gt)
-				betas_loss	= criterion_betas(betas_pred, betas_gt)
-				transl_loss	= criterion_transl(transl_pred, transl_gt)
+			# — Losses —
+			# Joint positions (MPJPE), betas, translation
+			joints_loss	= criterion_joints(joints_pred, joints_gt)
+			betas_loss	= criterion_betas(betas_pred, betas_gt)
+			transl_loss	= criterion_transl(transl_pred, transl_gt)
 
-				# Global orientation (axis-angle → Rotation matrix)
-				global_orient_rotMat_pred	= axis_angle_to_matrix(global_orient_aa_pred)	# (B, 3) -> (B, 3, 3)
-				global_orient_rotMat_gt		= axis_angle_to_matrix(global_orient_aa_gt)		# (B, 3) -> (B, 3, 3)
-				global_orient_loss = criterion_global_orient(global_orient_rotMat_pred, global_orient_rotMat_gt)
+			# Global orientation (axis-angle → Rotation matrix)
+			global_orient_rotMat_pred	= axis_angle_to_matrix(global_orient_aa_pred)	# (B, 3) -> (B, 3, 3)
+			global_orient_rotMat_gt		= axis_angle_to_matrix(global_orient_aa_gt)		# (B, 3) -> (B, 3, 3)
+			global_orient_loss = criterion_global_orient(global_orient_rotMat_pred, global_orient_rotMat_gt)
 
-				# Body pose (axis-angle → Rotation matrices)
-				body_pose_rotMat_pred = axis_angle_to_matrix(body_pose_aa_pred)	# (B, 23, 3) -> (B, 23, 3, 3)
-				body_pose_rotMat_gt   = axis_angle_to_matrix(body_pose_aa_gt)	# (B, 23, 3) -> (B, 23, 3, 3)
-				body_pose_loss = criterion_body_pose(body_pose_rotMat_pred, body_pose_rotMat_gt)
+			# Body pose (axis-angle → Rotation matrices)
+			body_pose_rotMat_pred = axis_angle_to_matrix(body_pose_aa_pred)	# (B, 23, 3) -> (B, 23, 3, 3)
+			body_pose_rotMat_gt   = axis_angle_to_matrix(body_pose_aa_gt)	# (B, 23, 3) -> (B, 23, 3, 3)
+			body_pose_loss = criterion_body_pose(body_pose_rotMat_pred, body_pose_rotMat_gt)
 
-				# pack losses in the fixed order matching log_vars:
-				# [ joints, betas, global_orient, body_pose, transl ]
-				losses = [joints_loss, betas_loss, global_orient_loss, body_pose_loss, transl_loss]
-				batch_loss = adaptive_loss_weights(losses)
+			# pack losses in the fixed order matching log_vars:
+			# [ joints, betas, global_orient, body_pose, transl ]
+			losses = [joints_loss, betas_loss, global_orient_loss, body_pose_loss, transl_loss]
+			batch_loss = adaptive_loss_weights(losses)
+
+			for i, loss_i in zip(cumulative_losses.keys(), losses):
+				cumulative_losses[i] += loss_i.item() * B
 
 			# Accumulate loss
 			running_loss += batch_loss.item() * B
@@ -259,13 +282,19 @@ def validate(model, valid_loader, device, smpl_preloader, CONFIG, adaptive_loss_
 			running_mpjpe += batch_mpjpe.item() * B
 
 			# Print stats
-			print(f"Loss: {batch_loss.item():.4f}",
-				  f"MPJPE: {batch_mpjpe.item()*100:.1f} cm")
+			print(f"Joints: {joints_loss.item():.4f}", end='\t')
+			print(f"Betas: {betas_loss.item():.4f}", end='\t')
+			print(f"Global: {global_orient_loss.item():.4f}", end='\t')
+			print(f"Body: {body_pose_loss.item():.4f}", end='\t')
+			print(f"Transl: {transl_loss.item():.4f}", end='\t')
+			print(f"Total: {batch_loss.item():.4f}", end='\t')
+			print(f"MPJPE: {batch_mpjpe.item()*100:.1f} cm", end='\n')
 
 	# Calculate per‐epoch averages
 	avg_loss = running_loss / total_samples
 	avg_mpjpe = running_mpjpe / total_samples
-	return avg_loss, avg_mpjpe
+	avg_losses_dict = {k: v / total_samples for k, v in cumulative_losses.items()}
+	return avg_loss, avg_mpjpe, avg_losses_dict
 
 def main():
 	start_time = time()
@@ -284,12 +313,13 @@ def main():
 
 		"paths": {
 			"run_dir": '',
-			"smpl_male_model_path": "smpl/models/basicmodel_m_lbs_10_207_0_v1.0.0.pkl",
-			"smpl_feml_model_path": "smpl/models/basicModel_f_lbs_10_207_0_v1.0.0.pkl",
+			"smpl_male_model_path": "/home/nashah/projects/bodies-at-rest/smpl/models/basicmodel_m_lbs_10_207_0_v1.0.0.pkl",
+			"smpl_feml_model_path": "/home/nashah/projects/bodies-at-rest/smpl/models/basicModel_f_lbs_10_207_0_v1.0.0.pkl",
 			# "hdf5_file_name": "preprocessed_mod1_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_1__normalize_per_image_True.hdf5",
 			# "hdf5_file_name": "preprocessed_mod2_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_2__normalize_per_image_True.hdf5",
 			# "hdf5_file_name": "preprocessed_straight_limbs_mod1_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_1__normalize_per_image_True_no_75mm.hdf5",
-			"hdf5_file_name": "preprocessed_straight_limbs_mod1_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_1__normalize_per_image_True.hdf5",
+			# "hdf5_file_name": "preprocessed_straight_limbs_mod1_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_1__normalize_per_image_True.hdf5",
+			"hdf5_file_name": "preprocessed_straight_limbs_mod1_add_noise_0__include_weight_height_False__omit_contact_sobel_False__use_hover_False__mod_1__normalize_per_image_True__with_val_and_test_split.hdf5",
 		},
 
 		"training": {
@@ -348,14 +378,14 @@ def main():
 	print(f"Device (CUDA/CPU):  {device}")
 
 	# Create the run directory and the path for HDF5 file
-	CONFIG["paths"]["run_dir"] = os.path.join("runs", CONFIG["run"]["timestamp"])
+	CONFIG["paths"]["run_dir"] = os.path.join("/home/nashah/projects/bodies-at-rest/runs", CONFIG["run"]["timestamp"])
 	os.makedirs(CONFIG["paths"]["run_dir"], exist_ok=True)
 	hdf5_file_path = get_preprocessed_hdf5_path(CONFIG["paths"]["hdf5_file_name"])
 
 	# Save the configuration to a JSON file
 	config_dump = {
 		"config": CONFIG,
-		# "git_commit": subprocess.check_output(["git","rev-parse","HEAD"]).decode().strip(),
+		"git_commit": subprocess.check_output(["git","rev-parse","HEAD"]).decode().strip(),
 		"torch_version": torch.__version__,
 		"python_version": sys.version.split()[0],
 	}
@@ -404,7 +434,7 @@ def main():
 	# — adaptive weights for joint & SMPL losses —
 	adaptive_loss_weights = AdaptiveLoss().to(device)
 	# Initialize log_vars to sensible priors, e.g. if you want all wᵢ=1 except betas=0.1 at start:
-	init_ws = torch.tensor([1.0, 0.1, 1.0, 1.0, 1.0], device=device)
+	init_ws = torch.tensor([0.1, 1.0, 0.1, 0.1, 0.1], device=device)
 	# we want exp(-log_var) = w  =>  log_var = -log(w)
 	adaptive_loss_weights.log_vars.data = -torch.log(init_ws)
 
@@ -452,12 +482,12 @@ def main():
 			smpl_preloader = SMPLPreloader(smpl_male_model, smpl_feml_model, device)
 
 			print("-" * 30)
-			train_loss, train_mpjpe = train(model, train_loader, device, smpl_preloader, CONFIG, adaptive_loss_weights, optimizer, scaler)
+			train_loss, train_mpjpe, train_loss_components = train(model, train_loader, device, smpl_preloader, CONFIG, adaptive_loss_weights, optimizer, scaler)
 			print(f"Training (Epoch {epoch:03d}) - Loss: {train_loss:.4f} | MPJPE: {train_mpjpe*100:.4f} cm")
 			print("-" * 30)
 
 			print("=" * 30)
-			valid_loss, valid_mpjpe = validate(model, valid_loader, device, smpl_preloader, CONFIG, adaptive_loss_weights)
+			valid_loss, valid_mpjpe, valid_loss_components = validate(model, valid_loader, device, smpl_preloader, CONFIG, adaptive_loss_weights)
 			print(f"Validation (Epoch {epoch:03d}) - Loss: {valid_loss:.4f} | MPJPE: {valid_mpjpe*100:.4f} cm")
 			print("=" * 30)
 
@@ -485,6 +515,10 @@ def main():
 				'body_pose': w_eff[3],
 				'transl': w_eff[4]
 			}, epoch)
+
+			writer.add_scalars('LossComponents/train', train_loss_components, epoch)
+			writer.add_scalars('LossComponents/valid', valid_loss_components, epoch)
+
 
 			# Log the losses, MPJPE, and learning rate to TensorBoard
 			writer.add_scalar('Loss/train', train_loss, epoch)
