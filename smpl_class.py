@@ -6,7 +6,7 @@ class SMPLPreloader:
 		self.smpl_male = smpl_male
 		self.smpl_feml = smpl_feml
 
-	def smpl_forward(self, betas, global_orient, body_pose, transl, ground_truth):
+	def smpl_forward(self, betas, global_orient, body_pose, transl, ground_truth, return_verts=False):
 		"""
 		Dynamically runs the appropriate SMPL model based on gender.
 		Returns predicted joints from SMPL given model outputs.
@@ -19,7 +19,12 @@ class SMPLPreloader:
 		is_male = gender_flags[:, 1].bool()
 		is_female = gender_flags[:, 0].bool()
 
-		joints_pred = torch.zeros(betas.size(0), 24, 3, device=self.device)
+		B = betas.size(0)
+		joints_pred = torch.zeros(B, 24, 3, device=self.device)
+		if return_verts:
+			verts_pred = torch.zeros(B, 6890, 3, device=self.device)
+		else:
+			verts_pred = None
 
 		if is_male.any():
 			smpl_output_m = self.smpl_male(
@@ -29,6 +34,8 @@ class SMPLPreloader:
 				transl=transl[is_male]
 			)
 			joints_pred[is_male] = smpl_output_m.joints[:, :24]
+			if return_verts:
+				verts_pred[is_male] = smpl_output_m.vertices
 
 		if is_female.any():
 			smpl_output_f = self.smpl_feml(
@@ -38,5 +45,10 @@ class SMPLPreloader:
 				transl=transl[is_female]
 			)
 			joints_pred[is_female] = smpl_output_f.joints[:, :24]
+			if return_verts:
+				verts_pred[is_female] = smpl_output_f.vertices
 
-		return joints_pred
+		if return_verts:
+			return joints_pred, verts_pred
+		else:
+			return joints_pred
