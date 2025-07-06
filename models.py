@@ -107,8 +107,6 @@ class PressureNet(nn.Module):
 			nn.Dropout(p=0.1),
 		)
 
-		# self.pool = nn.AdaptiveAvgPool2d((4, 4))  # Reduce feature map size
-
 		self.output_layer = nn.Sequential(
 			nn.Linear(67200, num_classes)
 		)
@@ -119,35 +117,6 @@ class PressureNet(nn.Module):
 		x = torch.flatten(x, 1)		# (B, 384, 25, 7) -> (B, 384*25*7=67200)
 		x = self.output_layer(x)	# (B, 67200) -> (B, 88)
 
-		# # 1. Scale adjustment
-		# x *= 0.01		# todo Apply selective scaling (0.01 only on translation, not entire vector)
-
-		# # 2. Pad to match SMPL format: from 88 → 91 dims
-		# # Extra 3 slots are reserved for copying and transforming Cartesian root to angle
-		# x = F.pad(x, (0, 3))	# (B, 88) -> (B, 91)
-
-		# # 3. Shift body_pose (23 joints * 3D axis-angle = 69 dims)
-		# # to the end from x[:, 19:88] to x[:, 22:91]
-		# body_pose = x[:, 19:88].clone()
-		# x[:, 22:91] = body_pose
-
-		# # 4. Normalize betas (shape parameters) to be within ~[-3, 3]
-		# x[:, 0:10] = torch.tanh(x[:, 0:10] / 3) * 3
-
-		# # 5. Apply fixed offset to root translation (empirically derived)
-		# x[:, 10:13] += torch.tensor([0.6, 1.2, 0.1], device=x.device)
-		# # E.g., if subject is lying on a bed → values like [0.0, 1.0, 0.8]
-
-		# # 6. Safe atan2 conversion of root rotation from 6D (sin, cos) components to axis-angle representation
-		# def safe_atan2(y, x, eps=1e-6):
-		# 	return torch.atan2(y + eps * (y == 0).float(), x + eps * (x == 0).float())
-
-		# root_sin = x[:, [16, 17, 18]]
-		# root_cos = x[:, [13, 14, 15]]
-		# x[:, 19:22] = safe_atan2(root_sin, root_cos)
-
-		# 7. Apply bounds-based tanh normalization on body_pose
-		# Calculate bounds mean and difference
 		bounds_mean = self.bounds.mean(dim=1)	# (72, 2) -> (72,)
 		bounds_diff = self.bounds[:, 1] - self.bounds[:, 0]	# (72,)
 
