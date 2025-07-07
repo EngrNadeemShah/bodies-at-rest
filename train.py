@@ -330,11 +330,11 @@ def main():
 
 		"optimizer": {
 			"type": "AdamW",
-			"lr_init": 1e-3,		# tune: 1e-4 to 1e-3 -> (default: 1e-4)
+			"lr_init": 5e-3,		# tune: 1e-4 to 1e-3 -> (default: 1e-4)
 			"weight_decay": 5e-4,	# L2 regularization | tune: 1e-5 to 1e-2 -> (default: 5e-4)
 			"scheduler": {
 				"type": "CosineAnnealingLR",
-				"eta_min": 1e-6,	# LR floor for CosineAnnealing | tune: 0 → 1e-5 -> (default: 1e-6)
+				"eta_min": 1e-4,	# LR floor for CosineAnnealing | tune: 0 → 1e-5 -> (default: 1e-6)
 			},
 		},
 
