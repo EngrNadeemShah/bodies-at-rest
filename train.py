@@ -385,7 +385,7 @@ def main():
 	# Save the configuration to a JSON file
 	config_dump = {
 		"config": CONFIG,
-		"git_commit": subprocess.check_output(["git","rev-parse","HEAD"]).decode().strip(),
+		# "git_commit": subprocess.check_output(["git","rev-parse","HEAD"]).decode().strip(),
 		"torch_version": torch.__version__,
 		"python_version": sys.version.split()[0],
 	}
@@ -434,9 +434,9 @@ def main():
 	# — adaptive weights for joint & SMPL losses —
 	adaptive_loss_weights = AdaptiveLoss().to(device)
 	# Initialize log_vars to sensible priors, e.g. if you want all wᵢ=1 except betas=0.1 at start:
-	init_ws = torch.tensor([0.1, 1.0, 0.1, 0.1, 0.1], device=device)
-	# we want exp(-log_var) = w  =>  log_var = -log(w)
-	adaptive_loss_weights.log_vars.data = -torch.log(init_ws)
+	# init_ws = torch.tensor([0.1, 1.0, 0.1, 0.1, 0.1], device=device)
+	# # we want exp(-log_var) = w  =>  log_var = -log(w)
+	# adaptive_loss_weights.log_vars.data = -torch.log(init_ws)
 
 	optimizer = AdamW(list(model.parameters()) + list(adaptive_loss_weights.parameters()),
         lr=CONFIG['optimizer']['lr_init'], weight_decay=CONFIG['optimizer']['weight_decay'])
@@ -543,7 +543,7 @@ def main():
 
 			# Best‐model checkpoint
 			if valid_loss < best_valid_loss:
-				best_valid_epoch			= epoch
+				best_valid_epoch	= epoch
 				best_valid_loss		= valid_loss
 				best_train_loss		= train_loss
 				best_train_mpjpe	= train_mpjpe
