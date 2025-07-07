@@ -96,7 +96,7 @@ class AdaptiveLoss(nn.Module):
 
 
 def train(model, train_loader, device, smpl_preloader, CONFIG, adaptive_loss_weights, optimizer, scaler):
-	# torch.autograd.set_detect_anomaly(True)
+	torch.autograd.set_detect_anomaly(True)
 	print(f"\nTraining ...")
 
 	running_loss = 0.0
@@ -123,26 +123,26 @@ def train(model, train_loader, device, smpl_preloader, CONFIG, adaptive_loss_wei
 		optimizer.zero_grad()	# Clear gradients
 
 		# — Forward —
-		with autocast(device_type=device.type):
-			smpl_params_pred = model(inputs)	# (B, 85)
+		# with autocast(device_type=device.type):
+		smpl_params_pred = model(inputs)	# (B, 85)
 
-			# Unpack preds
-			betas_pred				= smpl_params_pred[:, :10]						# (B, 10)
-			global_orient_aa_pred	= smpl_params_pred[:, 10:13]					# (B, 3)
-			body_pose_aa_pred		= smpl_params_pred[:, 13:82].reshape(-1, 23, 3)	# (B, 69) -> (B, 23, 3)
-			transl_pred				= smpl_params_pred[:, 82:85]					# (B, 3)
+		# Unpack preds
+		betas_pred				= smpl_params_pred[:, :10]						# (B, 10)
+		global_orient_aa_pred	= smpl_params_pred[:, 10:13]					# (B, 3)
+		body_pose_aa_pred		= smpl_params_pred[:, 13:82].reshape(-1, 23, 3)	# (B, 69) -> (B, 23, 3)
+		transl_pred				= smpl_params_pred[:, 82:85]					# (B, 3)
 
-			# Pass the CNN model output through SMPL model to get the joint positions
-			joints_pred = smpl_preloader.smpl_forward(betas_pred, global_orient_aa_pred, body_pose_aa_pred, transl_pred, ground_truth)	# (B, 24, 3)
+		# Pass the CNN model output through SMPL model to get the joint positions
+		joints_pred = smpl_preloader.smpl_forward(betas_pred, global_orient_aa_pred, body_pose_aa_pred, transl_pred, ground_truth)	# (B, 24, 3)
 
-			# Unpack GT
-			joints_gt			= ground_truth[:, :72].reshape(B, 24, 3)		# (B, 24, 3)
-			smpl_params_gt		= ground_truth[:, 72:157]						# (B, 85)
+		# Unpack GT
+		joints_gt			= ground_truth[:, :72].reshape(B, 24, 3)		# (B, 24, 3)
+		smpl_params_gt		= ground_truth[:, 72:157]						# (B, 85)
 
-			betas_gt			= smpl_params_gt[:, :10]						# (B, 10)
-			global_orient_aa_gt	= smpl_params_gt[:, 10:13]						# (B, 3)
-			body_pose_aa_gt		= smpl_params_gt[:, 13:82].reshape(-1, 23, 3)	# (B, 69) -> (B, 23, 3)
-			transl_gt			= smpl_params_gt[:, 82:85]						# (B, 3)
+		betas_gt			= smpl_params_gt[:, :10]						# (B, 10)
+		global_orient_aa_gt	= smpl_params_gt[:, 10:13]						# (B, 3)
+		body_pose_aa_gt		= smpl_params_gt[:, 13:82].reshape(-1, 23, 3)	# (B, 69) -> (B, 23, 3)
+		transl_gt			= smpl_params_gt[:, 82:85]						# (B, 3)
 
 		# — Losses —
 		# Joint positions (MPJPE), betas, translation
@@ -169,11 +169,9 @@ def train(model, train_loader, device, smpl_preloader, CONFIG, adaptive_loss_wei
 			cumulative_losses[i] += loss_i.item() * B
 
 		# Backward pass and optimization (Outside the autocast context)
-		scaler.scale(batch_loss).backward()			# compute (scaled) grads
-		scaler.unscale_(optimizer)					# bring them back to real scale
-		torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)	# clip whole-model norm
-		scaler.step(optimizer)						# apply the clipped step
-		scaler.update()								# update the scale for next iter
+		batch_loss.backward()
+		torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+		optimizer.step()
 
 		# Prevent log_vars from running away
 		with torch.no_grad():
@@ -227,26 +225,26 @@ def validate(model, valid_loader, device, smpl_preloader, CONFIG, adaptive_loss_
 			total_samples += B
 
 			# — Forward —
-			with autocast(device_type=device.type):
-				smpl_params_pred = model(inputs)	# (B, 85)
+			# with autocast(device_type=device.type):
+			smpl_params_pred = model(inputs)	# (B, 85)
 
-				# Unpack preds
-				betas_pred				= smpl_params_pred[:, :10]						# (B, 10)
-				global_orient_aa_pred	= smpl_params_pred[:, 10:13]					# (B, 3)
-				body_pose_aa_pred		= smpl_params_pred[:, 13:82].reshape(-1, 23, 3)	# (B, 69) -> (B, 23, 3)
-				transl_pred				= smpl_params_pred[:, 82:85]					# (B, 3)
+			# Unpack preds
+			betas_pred				= smpl_params_pred[:, :10]						# (B, 10)
+			global_orient_aa_pred	= smpl_params_pred[:, 10:13]					# (B, 3)
+			body_pose_aa_pred		= smpl_params_pred[:, 13:82].reshape(-1, 23, 3)	# (B, 69) -> (B, 23, 3)
+			transl_pred				= smpl_params_pred[:, 82:85]					# (B, 3)
 
-				# Pass the CNN model output through SMPL model to get the joint positions
-				joints_pred = smpl_preloader.smpl_forward(betas_pred, global_orient_aa_pred, body_pose_aa_pred, transl_pred, ground_truth)	# (B, 24, 3)
+			# Pass the CNN model output through SMPL model to get the joint positions
+			joints_pred = smpl_preloader.smpl_forward(betas_pred, global_orient_aa_pred, body_pose_aa_pred, transl_pred, ground_truth)	# (B, 24, 3)
 
-				# Unpack GT
-				joints_gt			= ground_truth[:, :72].reshape(B, 24, 3)		# (B, 24, 3)
-				smpl_params_gt		= ground_truth[:, 72:157]						# (B, 85)
+			# Unpack GT
+			joints_gt			= ground_truth[:, :72].reshape(B, 24, 3)		# (B, 24, 3)
+			smpl_params_gt		= ground_truth[:, 72:157]						# (B, 85)
 
-				betas_gt			= smpl_params_gt[:, :10]						# (B, 10)
-				global_orient_aa_gt	= smpl_params_gt[:, 10:13]						# (B, 3)
-				body_pose_aa_gt		= smpl_params_gt[:, 13:82].reshape(-1, 23, 3)	# (B, 69) -> (B, 23, 3)
-				transl_gt			= smpl_params_gt[:, 82:85]						# (B, 3)
+			betas_gt			= smpl_params_gt[:, :10]						# (B, 10)
+			global_orient_aa_gt	= smpl_params_gt[:, 10:13]						# (B, 3)
+			body_pose_aa_gt		= smpl_params_gt[:, 13:82].reshape(-1, 23, 3)	# (B, 69) -> (B, 23, 3)
+			transl_gt			= smpl_params_gt[:, 82:85]						# (B, 3)
 
 			# — Losses —
 			# Joint positions (MPJPE), betas, translation
@@ -434,9 +432,9 @@ def main():
 	# — adaptive weights for joint & SMPL losses —
 	adaptive_loss_weights = AdaptiveLoss().to(device)
 	# Initialize log_vars to sensible priors, e.g. if you want all wᵢ=1 except betas=0.1 at start:
-	# init_ws = torch.tensor([0.1, 1.0, 0.1, 0.1, 0.1], device=device)
-	# # we want exp(-log_var) = w  =>  log_var = -log(w)
-	# adaptive_loss_weights.log_vars.data = -torch.log(init_ws)
+	init_ws = torch.tensor([1.0, 0.1, 1.0, 1.0, 1.0], device=device)
+	# we want exp(-log_var) = w  =>  log_var = -log(w)
+	adaptive_loss_weights.log_vars.data = -torch.log(init_ws)
 
 	optimizer = AdamW(list(model.parameters()) + list(adaptive_loss_weights.parameters()),
         lr=CONFIG['optimizer']['lr_init'], weight_decay=CONFIG['optimizer']['weight_decay'])
