@@ -76,26 +76,26 @@ criterion_body_pose     = lambda R_pred, R_gt: geodesic_loss(R_pred, R_gt) / bod
 
 
 # Replace static w_* (weights for losses) scalars with learnable weights using homoscedastic uncertainty (log-variance) trick
-class AdaptiveLoss(nn.Module):
-	"""
-	Learns a log-variance per loss term; at forward we do:
-		total = Σ_i [ exp(–log_vars[i]) * L_i  +  log_vars[i] ]
-	so that exp(–log_vars[i]) is the effective weight on L_i.
-	"""
-	def __init__(self):
-		super().__init__()
-		# 5 terms: joints, betas, global_orient, body_pose, transl
-		self.log_vars = nn.Parameter(torch.zeros(5))
+# class AdaptiveLoss(nn.Module):
+# 	"""
+# 	Learns a log-variance per loss term; at forward we do:
+# 		total = Σ_i [ exp(–log_vars[i]) * L_i  +  log_vars[i] ]
+# 	so that exp(–log_vars[i]) is the effective weight on L_i.
+# 	"""
+# 	def __init__(self):
+# 		super().__init__()
+# 		# 5 terms: joints, betas, global_orient, body_pose, transl
+# 		self.log_vars = nn.Parameter(torch.zeros(5))
 
-	def forward(self, losses: List[torch.Tensor]) -> torch.Tensor:
-		total = 0.0
-		for i, Li in enumerate(losses):
-			inv_var = torch.exp(-self.log_vars[i])
-			total += inv_var * Li + self.log_vars[i]
-		return total
+# 	def forward(self, losses: List[torch.Tensor]) -> torch.Tensor:
+# 		total = 0.0
+# 		for i, Li in enumerate(losses):
+# 			inv_var = torch.exp(-self.log_vars[i])
+# 			total += inv_var * Li + self.log_vars[i]
+# 		return total
 
 
-def train(model, train_loader, device, smpl_preloader, CONFIG, adaptive_loss_weights, optimizer, scaler):
+def train(model, train_loader, device, smpl_preloader, CONFIG, optimizer, scaler):
 	torch.autograd.set_detect_anomaly(True)
 	print(f"\nTraining ...")
 
@@ -163,7 +163,15 @@ def train(model, train_loader, device, smpl_preloader, CONFIG, adaptive_loss_wei
 		# pack losses in the fixed order matching log_vars:
 		# [ joints, betas, global_orient, body_pose, transl ]
 		losses = [joints_loss, betas_loss, global_orient_loss, body_pose_loss, transl_loss]
-		batch_loss = adaptive_loss_weights(losses)
+		# batch_loss = adaptive_loss_weights(losses)
+
+		batch_loss = (
+			CONFIG['loss_weights']['joints']         * losses[0] +
+			CONFIG['loss_weights']['betas']          * losses[1] +
+			CONFIG['loss_weights']['global_orient']  * losses[2] +
+			CONFIG['loss_weights']['body_pose']      * losses[3] +
+			CONFIG['loss_weights']['transl']         * losses[4]
+		)
 
 		for i, loss_i in zip(cumulative_losses.keys(), losses):
 			cumulative_losses[i] += loss_i.item() * B
@@ -174,8 +182,8 @@ def train(model, train_loader, device, smpl_preloader, CONFIG, adaptive_loss_wei
 		optimizer.step()
 
 		# Prevent log_vars from running away
-		with torch.no_grad():
-			adaptive_loss_weights.log_vars.data.clamp_(min=-5.0, max=+5.0)
+		# with torch.no_grad():
+		# 	adaptive_loss_weights.log_vars.data.clamp_(min=-5.0, max=+5.0)
 
 		# Accumulate loss
 		running_loss += batch_loss.item() * B
@@ -200,7 +208,7 @@ def train(model, train_loader, device, smpl_preloader, CONFIG, adaptive_loss_wei
 	avg_losses_dict = {k: v / total_samples for k, v in cumulative_losses.items()}
 	return avg_loss, avg_mpjpe, avg_losses_dict
 
-def validate(model, valid_loader, device, smpl_preloader, CONFIG, adaptive_loss_weights):
+def validate(model, valid_loader, device, smpl_preloader, CONFIG):
 	print(f"\nValidating ...")
 
 	running_loss = 0.0
@@ -265,7 +273,15 @@ def validate(model, valid_loader, device, smpl_preloader, CONFIG, adaptive_loss_
 			# pack losses in the fixed order matching log_vars:
 			# [ joints, betas, global_orient, body_pose, transl ]
 			losses = [joints_loss, betas_loss, global_orient_loss, body_pose_loss, transl_loss]
-			batch_loss = adaptive_loss_weights(losses)
+			# batch_loss = adaptive_loss_weights(losses)
+
+			batch_loss = (
+				CONFIG['loss_weights']['joints']         * losses[0] +
+				CONFIG['loss_weights']['betas']          * losses[1] +
+				CONFIG['loss_weights']['global_orient']  * losses[2] +
+				CONFIG['loss_weights']['body_pose']      * losses[3] +
+				CONFIG['loss_weights']['transl']         * losses[4]
+			)
 
 			for i, loss_i in zip(cumulative_losses.keys(), losses):
 				cumulative_losses[i] += loss_i.item() * B
@@ -328,12 +344,12 @@ def main():
 
 		"optimizer": {
 			"type": "AdamW",
-			"lr_init": 5e-3,		# tune: 1e-4 to 1e-3 -> (default: 1e-4)
+			"lr_init": 1e-3,		# tune: 1e-4 to 1e-3 -> (default: 1e-4)
 			"weight_decay": 5e-4,	# L2 regularization | tune: 1e-5 to 1e-2 -> (default: 5e-4)
-			"scheduler": {
-				"type": "CosineAnnealingLR",
-				"eta_min": 1e-4,	# LR floor for CosineAnnealing | tune: 0 → 1e-5 -> (default: 1e-6)
-			},
+			# "scheduler": {
+			# 	"type": "CosineAnnealingLR",
+			# 	"eta_min": 1e-4,	# LR floor for CosineAnnealing | tune: 0 → 1e-5 -> (default: 1e-6)
+			# },
 		},
 
 		"dataloader": {
@@ -347,6 +363,15 @@ def main():
 			},
 
 		"hardware": {},
+
+		"loss_weights": {
+			'joints':		1.0,
+			'betas':		0.1,
+			'global_orient':1.0,
+			'body_pose':	1.0,
+			'transl':		1.0
+		}
+
 		}
 
 	# Define the hyperparameters which you want to track in TensorBoard
@@ -430,17 +455,18 @@ def main():
 
 
 	# — adaptive weights for joint & SMPL losses —
-	adaptive_loss_weights = AdaptiveLoss().to(device)
-	# Initialize log_vars to sensible priors, e.g. if you want all wᵢ=1 except betas=0.1 at start:
-	init_ws = torch.tensor([1.0, 0.1, 1.0, 1.0, 1.0], device=device)
-	# we want exp(-log_var) = w  =>  log_var = -log(w)
-	adaptive_loss_weights.log_vars.data = -torch.log(init_ws)
+	# adaptive_loss_weights = AdaptiveLoss().to(device)
+	# # Initialize log_vars to sensible priors, e.g. if you want all wᵢ=1 except betas=0.1 at start:
+	# init_ws = torch.tensor([1.0, 0.1, 1.0, 1.0, 1.0], device=device)
+	# # we want exp(-log_var) = w  =>  log_var = -log(w)
+	# adaptive_loss_weights.log_vars.data = -torch.log(init_ws)
 
-	optimizer = AdamW(list(model.parameters()) + list(adaptive_loss_weights.parameters()),
-        lr=CONFIG['optimizer']['lr_init'], weight_decay=CONFIG['optimizer']['weight_decay'])
+	# optimizer = AdamW(list(model.parameters()) + list(adaptive_loss_weights.parameters()),
+    #     lr=CONFIG['optimizer']['lr_init'], weight_decay=CONFIG['optimizer']['weight_decay'])
+	optimizer = AdamW(model.parameters(), lr=CONFIG['optimizer']['lr_init'], weight_decay=CONFIG['optimizer']['weight_decay'])
 
 	# Decay LR from lr_init → eta_min over 'num_epochs'
-	scheduler = CosineAnnealingLR(optimizer, T_max=CONFIG['training']['num_epochs'], eta_min=CONFIG['optimizer']['scheduler']['eta_min'])
+	# scheduler = CosineAnnealingLR(optimizer, T_max=CONFIG['training']['num_epochs'], eta_min=CONFIG['optimizer']['scheduler']['eta_min'])
 
 	if CONFIG['run']['verbose']:
 		print("\nModel Summary:")
@@ -480,40 +506,42 @@ def main():
 			smpl_preloader = SMPLPreloader(smpl_male_model, smpl_feml_model, device)
 
 			print("-" * 30)
-			train_loss, train_mpjpe, train_loss_components = train(model, train_loader, device, smpl_preloader, CONFIG, adaptive_loss_weights, optimizer, scaler)
+			train_loss, train_mpjpe, train_loss_components = train(model, train_loader, device, smpl_preloader, CONFIG, optimizer, scaler)
 			print(f"Training (Epoch {epoch:03d}) - Loss: {train_loss:.4f} | MPJPE: {train_mpjpe*100:.4f} cm")
 			print("-" * 30)
 
 			print("=" * 30)
-			valid_loss, valid_mpjpe, valid_loss_components = validate(model, valid_loader, device, smpl_preloader, CONFIG, adaptive_loss_weights)
+			valid_loss, valid_mpjpe, valid_loss_components = validate(model, valid_loader, device, smpl_preloader, CONFIG)
 			print(f"Validation (Epoch {epoch:03d}) - Loss: {valid_loss:.4f} | MPJPE: {valid_mpjpe*100:.4f} cm")
 			print("=" * 30)
 
 			# Update the learning rate
-			scheduler.step()
+			# scheduler.step()
 
 			# Print the current learning rate
-			current_lr = scheduler.get_last_lr()[0]
-			print(f"Epoch {epoch:03d} - lr: {current_lr:.2e} ({current_lr:.6f}) ({CONFIG['optimizer']['lr_init']:.2e} → {CONFIG['optimizer']['scheduler']['eta_min']:.2e})")
+			# current_lr = scheduler.get_last_lr()[0]
+			# print(f"Epoch {epoch:03d} - lr: {current_lr:.2e} ({current_lr:.6f}) ({CONFIG['optimizer']['lr_init']:.2e} → {CONFIG['optimizer']['scheduler']['eta_min']:.2e})")
+			current_lr = optimizer.param_groups[0]['lr']
 
 			# Get the 5 weights as a CPU tensor and print them
-			w_eff = torch.exp(-adaptive_loss_weights.log_vars.data).cpu().tolist()
-			print(f"[Epoch {epoch:3d}] Loss weights:"
-					f" joints={w_eff[0]:.3f},"
-					f" betas={w_eff[1]:.3f},"
-					f" global_orient={w_eff[2]:.3f},"
-					f" body_pose={w_eff[3]:.3f},"
-					f" transl={w_eff[4]:.3f}")
+			# w_eff = torch.exp(-adaptive_loss_weights.log_vars.data).cpu().tolist()
+			# print(f"[Epoch {epoch:3d}] Loss weights:"
+			# 		f" joints={w_eff[0]:.3f},"
+			# 		f" betas={w_eff[1]:.3f},"
+			# 		f" global_orient={w_eff[2]:.3f},"
+			# 		f" body_pose={w_eff[3]:.3f},"
+			# 		f" transl={w_eff[4]:.3f}")
 
 			# Log the loss weights to TensorBoard
-			writer.add_scalars('LossWeights', {
-				'joints': w_eff[0],
-				'betas': w_eff[1],
-				'global_orient': w_eff[2],
-				'body_pose': w_eff[3],
-				'transl': w_eff[4]
-			}, epoch)
+			# writer.add_scalars('LossWeights', {
+			# 	'joints': w_eff[0],
+			# 	'betas': w_eff[1],
+			# 	'global_orient': w_eff[2],
+			# 	'body_pose': w_eff[3],
+			# 	'transl': w_eff[4]
+			# }, epoch)
 
+			writer.add_scalars('LossWeights', CONFIG["loss_weights"], epoch)
 			writer.add_scalars('LossComponents/train', train_loss_components, epoch)
 			writer.add_scalars('LossComponents/valid', valid_loss_components, epoch)
 
@@ -549,7 +577,7 @@ def main():
 				epochs_without_improvement = 0
 				save_checkpoint(
 					os.path.join(CONFIG["paths"]["run_dir"], 'best_model.pth'),
-					epoch, model, optimizer, scheduler,
+					epoch, model, optimizer,
 					train_valid_losses, best_valid_loss, scaler)
 			else:
 				epochs_without_improvement += 1
@@ -564,7 +592,7 @@ def main():
 			if epoch % CONFIG['run']['checkpoint']['save_every_epochs'] == 0 or epoch == CONFIG['training']['num_epochs']:
 				save_checkpoint(
 					os.path.join(CONFIG["paths"]["run_dir"], f'ckpt_epoch{epoch:03d}_vloss{valid_loss:.4f}.pth'),
-					epoch, model, optimizer, scheduler,
+					epoch, model, optimizer,
 					train_valid_losses, best_valid_loss, scaler)
 
 	finally:
@@ -573,8 +601,8 @@ def main():
 			"best_valid_epoch":		best_valid_epoch,
 			"best_valid_loss":		best_valid_loss,
 			"train_loss_at_best":	best_train_loss,
-			'train_mpjpe_at_best':	best_train_mpjpe,
-			'valid_mpjpe_at_best':  best_valid_mpjpe,
+			'train_mpjpe_at_best':	best_train_mpjpe * 100,
+			'valid_mpjpe_at_best':  best_valid_mpjpe * 100,
 			"total_time_s":          time() - start_time
 		}
 		results_path = os.path.join(CONFIG["paths"]["run_dir"], "results.json")
@@ -586,8 +614,8 @@ def main():
 			'best_valid_epoch':   float(best_valid_epoch),
 			'best_valid_loss':     best_valid_loss,
 			'train_loss_at_best':   best_train_loss,
-			'train_mpjpe_at_best':  best_train_mpjpe,
-			'valid_mpjpe_at_best':  best_valid_mpjpe,
+			'train_mpjpe_at_best':  best_train_mpjpe * 100,
+			'valid_mpjpe_at_best':  best_valid_mpjpe * 100,
 		}
 
 		# Log final evaluation metrics to SCALARS tab (step=0)
