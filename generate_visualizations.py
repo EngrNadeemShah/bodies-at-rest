@@ -139,7 +139,7 @@ def main():
 			smpl_model, faces,
 			body_pose_pred, global_orient_pred, betas_pred, transl_pred, joints_pred.squeeze().detach().cpu().numpy(),
 			pose_gt, global_gt, betas_gt, transl_gt, joints_gt.squeeze().detach().cpu().numpy(),
-			out_path
+			out_path, ground_size=0
 		)
 
 	print(f"\n✅ Saved images for: {selected_df[['label', 'idx']].to_string(index=False)}")
