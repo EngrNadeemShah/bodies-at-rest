@@ -344,12 +344,12 @@ def main():
 
 		"optimizer": {
 			"type": "AdamW",
-			"lr_init": 1e-3,		# tune: 1e-4 to 1e-3 -> (default: 1e-4)
+			"lr_init": 5e-3,		# tune: 1e-4 to 1e-3 -> (default: 1e-4)
 			"weight_decay": 5e-4,	# L2 regularization | tune: 1e-5 to 1e-2 -> (default: 5e-4)
-			# "scheduler": {
-			# 	"type": "CosineAnnealingLR",
-			# 	"eta_min": 1e-4,	# LR floor for CosineAnnealing | tune: 0 → 1e-5 -> (default: 1e-6)
-			# },
+			"scheduler": {
+				"type": "CosineAnnealingLR",
+				"eta_min": 1e-4,	# LR floor for CosineAnnealing | tune: 0 → 1e-5 -> (default: 1e-6)
+			},
 		},
 
 		"dataloader": {
@@ -466,7 +466,7 @@ def main():
 	optimizer = AdamW(model.parameters(), lr=CONFIG['optimizer']['lr_init'], weight_decay=CONFIG['optimizer']['weight_decay'])
 
 	# Decay LR from lr_init → eta_min over 'num_epochs'
-	# scheduler = CosineAnnealingLR(optimizer, T_max=CONFIG['training']['num_epochs'], eta_min=CONFIG['optimizer']['scheduler']['eta_min'])
+	scheduler = CosineAnnealingLR(optimizer, T_max=CONFIG['training']['num_epochs'], eta_min=CONFIG['optimizer']['scheduler']['eta_min'])
 
 	if CONFIG['run']['verbose']:
 		print("\nModel Summary:")
@@ -516,12 +516,11 @@ def main():
 			print("=" * 30)
 
 			# Update the learning rate
-			# scheduler.step()
+			scheduler.step()
 
 			# Print the current learning rate
-			# current_lr = scheduler.get_last_lr()[0]
-			# print(f"Epoch {epoch:03d} - lr: {current_lr:.2e} ({current_lr:.6f}) ({CONFIG['optimizer']['lr_init']:.2e} → {CONFIG['optimizer']['scheduler']['eta_min']:.2e})")
-			current_lr = optimizer.param_groups[0]['lr']
+			current_lr = scheduler.get_last_lr()[0]
+			print(f"Epoch {epoch:03d} - lr: {current_lr:.2e} ({current_lr:.6f}) ({CONFIG['optimizer']['lr_init']:.2e} → {CONFIG['optimizer']['scheduler']['eta_min']:.2e})")
 
 			# Get the 5 weights as a CPU tensor and print them
 			# w_eff = torch.exp(-adaptive_loss_weights.log_vars.data).cpu().tolist()
@@ -578,7 +577,7 @@ def main():
 				save_checkpoint(
 					os.path.join(CONFIG["paths"]["run_dir"], 'best_model.pth'),
 					epoch, model, optimizer,
-					train_valid_losses, best_valid_loss, scaler)
+					train_valid_losses, best_valid_loss, scaler=scaler, scheduler=scheduler)
 			else:
 				epochs_without_improvement += 1
 				print(f"No improvement in validation loss for {epochs_without_improvement} epochs.")
@@ -593,7 +592,7 @@ def main():
 				save_checkpoint(
 					os.path.join(CONFIG["paths"]["run_dir"], f'ckpt_epoch{epoch:03d}_vloss{valid_loss:.4f}.pth'),
 					epoch, model, optimizer,
-					train_valid_losses, best_valid_loss, scaler)
+					train_valid_losses, best_valid_loss, scaler=scaler, scheduler=scheduler)
 
 	finally:
 		# Write out a simple results.json for downstream scripts
