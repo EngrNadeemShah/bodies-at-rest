@@ -568,7 +568,7 @@ def main():
 				valid_mpjpe_at_best_loss= valid_mpjpe
 				epochs_without_loss_improvement = 0
 				save_checkpoint(
-					os.path.join(CONFIG["paths"]["run_dir"], f'best_model_loss_epoch{best_valid_loss_epoch:03d}.pth'),
+					os.path.join(CONFIG["paths"]["run_dir"], f'best_model_loss.pth'),
 					epoch, model, optimizer, train_valid_losses,
 					best_valid_loss=best_valid_loss, scaler=scaler)
 			else:
@@ -584,7 +584,7 @@ def main():
 				train_mpjpe_at_best_mpjpe	= train_mpjpe
 				epochs_without_mpjpe_improvement = 0
 				save_checkpoint(
-					os.path.join(CONFIG["paths"]["run_dir"], f'best_model_mpjpe_epoch{best_valid_mpjpe_epoch:03d}.pth'),
+					os.path.join(CONFIG["paths"]["run_dir"], f'best_model_mpjpe.pth'),
 					epoch, model, optimizer, train_valid_losses,
 					best_valid_loss=valid_loss, best_valid_mpjpe=best_valid_mpjpe, scaler=scaler)
 			else:
@@ -597,10 +597,10 @@ def main():
 			# 	print(f"Stopping early at epoch {epoch} after {epochs_without_loss_improvement} epochs with no improvement in validation loss.")
 			# 	break
 
-			# Early stopping if no improvement in validation MPJPE for `early_stopping_patience` epochs
-			if epochs_without_mpjpe_improvement >= CONFIG['run']['checkpoint']['early_stopping_patience']:
-				print(f"Stopping early at epoch {epoch} after {epochs_without_mpjpe_improvement} epochs with no improvement in validation MPJPE.")
-				break
+			# # Early stopping if no improvement in validation MPJPE for `early_stopping_patience` epochs
+			# if epochs_without_mpjpe_improvement >= CONFIG['run']['checkpoint']['early_stopping_patience']:
+			# 	print(f"Stopping early at epoch {epoch} after {epochs_without_mpjpe_improvement} epochs with no improvement in validation MPJPE.")
+			# 	break
 
 			# Periodic checkpoint
 			if epoch % CONFIG['run']['checkpoint']['save_every_epochs'] == 0 or epoch == CONFIG['training']['num_epochs']:
