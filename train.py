@@ -462,12 +462,24 @@ def main():
 
 
 	# 4. Training Loop
-	best_valid_loss		= float('inf')
-	best_valid_epoch	= -1
-	best_train_loss		= None
-	best_train_mpjpe	= None
-	best_valid_mpjpe	= None
-	epochs_without_improvement = 0	# counter for early stopping
+	# Best model based on valid_loss
+	best_valid_loss = float('inf')
+	best_valid_loss_epoch = -1
+
+	train_loss_at_best_loss = None
+	train_mpjpe_at_best_loss = None
+	valid_mpjpe_at_best_loss = None
+
+	# Best model based on valid_mpjpe
+	best_valid_mpjpe = float('inf')
+	best_valid_mpjpe_epoch = -1
+
+	train_loss_at_best_mpjpe = None
+	valid_loss_at_best_mpjpe = None
+	train_mpjpe_at_best_mpjpe = None
+
+	epochs_without_loss_improvement = 0	# counter for early stopping
+	epochs_without_mpjpe_improvement = 0
 
 	train_valid_losses = {
 		'epoch': [],
@@ -547,25 +559,47 @@ def main():
 					if param.grad is not None:
 						writer.add_histogram(f"{name}.grad", param.grad, epoch)
 
-			# Best‐model checkpoint
+			# Save best model based on validation loss
 			if valid_loss < best_valid_loss:
-				best_valid_epoch	= epoch
-				best_valid_loss		= valid_loss
-				best_train_loss		= train_loss
-				best_train_mpjpe	= train_mpjpe
-				best_valid_mpjpe	= valid_mpjpe
-				epochs_without_improvement = 0
+				best_valid_loss_epoch	= epoch
+				best_valid_loss			= valid_loss
+				train_loss_at_best_loss	= train_loss
+				train_mpjpe_at_best_loss= train_mpjpe
+				valid_mpjpe_at_best_loss= valid_mpjpe
+				epochs_without_loss_improvement = 0
 				save_checkpoint(
-					os.path.join(CONFIG["paths"]["run_dir"], 'best_model.pth'),
-					epoch, model, optimizer,
-					train_valid_losses, best_valid_loss, scaler=scaler)
+					os.path.join(CONFIG["paths"]["run_dir"], f'best_model_loss_epoch{best_valid_loss_epoch:03d}.pth'),
+					epoch, model, optimizer, train_valid_losses,
+					best_valid_loss=best_valid_loss, scaler=scaler)
 			else:
-				epochs_without_improvement += 1
-				print(f"No improvement in validation loss for {epochs_without_improvement} epochs.")
+				epochs_without_loss_improvement += 1
+				print(f"No improvement in validation loss for {epochs_without_loss_improvement} epochs.")
 
-			# Early stopping if no improvement in validation loss for `early_stopping_patience` epochs
-			if epochs_without_improvement >= CONFIG['run']['checkpoint']['early_stopping_patience']:
-				print(f"Stopping early at epoch {epoch} after {epochs_without_improvement} epochs with no improvement.")
+			# Save best model based on validation MPJPE
+			if valid_mpjpe < best_valid_mpjpe:
+				best_valid_mpjpe_epoch		= epoch
+				best_valid_mpjpe			= valid_mpjpe
+				train_loss_at_best_mpjpe	= train_loss
+				valid_loss_at_best_mpjpe	= valid_loss
+				train_mpjpe_at_best_mpjpe	= train_mpjpe
+				epochs_without_mpjpe_improvement = 0
+				save_checkpoint(
+					os.path.join(CONFIG["paths"]["run_dir"], f'best_model_mpjpe_epoch{best_valid_mpjpe_epoch:03d}.pth'),
+					epoch, model, optimizer, train_valid_losses,
+					best_valid_loss=valid_loss, best_valid_mpjpe=best_valid_mpjpe, scaler=scaler)
+			else:
+				epochs_without_mpjpe_improvement += 1
+				print(f"No improvement in validation MPJPE for {epochs_without_mpjpe_improvement} epochs.")
+
+
+			# # Early stopping if no improvement in validation loss for `early_stopping_patience` epochs
+			# if epochs_without_loss_improvement >= CONFIG['run']['checkpoint']['early_stopping_patience']:
+			# 	print(f"Stopping early at epoch {epoch} after {epochs_without_loss_improvement} epochs with no improvement in validation loss.")
+			# 	break
+
+			# Early stopping if no improvement in validation MPJPE for `early_stopping_patience` epochs
+			if epochs_without_mpjpe_improvement >= CONFIG['run']['checkpoint']['early_stopping_patience']:
+				print(f"Stopping early at epoch {epoch} after {epochs_without_mpjpe_improvement} epochs with no improvement in validation MPJPE.")
 				break
 
 			# Periodic checkpoint
@@ -578,35 +612,48 @@ def main():
 	finally:
 		# Write out a simple results.json for downstream scripts
 		results = {
-			"best_valid_epoch":		best_valid_epoch,
-			"best_valid_loss":		best_valid_loss,
-			"train_loss_at_best":	best_train_loss,
-			'train_mpjpe_at_best':	best_train_mpjpe * 100,
-			'valid_mpjpe_at_best':  best_valid_mpjpe * 100,
-			"total_time_s":          time() - start_time
+			# Best by valid_loss
+			"best_valid_loss_epoch": best_valid_loss_epoch,
+			"valid_loss_at_best_loss": best_valid_loss,
+
+			"train_loss_at_best_loss": train_loss_at_best_loss,
+			"train_mpjpe_at_best_loss": train_mpjpe_at_best_loss * 100,
+			"valid_mpjpe_at_best_loss": valid_mpjpe_at_best_loss * 100,
+
+			# Best by valid_mpjpe
+			"best_valid_mpjpe_epoch": best_valid_mpjpe_epoch,
+			"valid_mpjpe_at_best_mpjpe": best_valid_mpjpe * 100,
+
+			"train_loss_at_best_mpjpe": train_loss_at_best_mpjpe,
+			"valid_loss_at_best_mpjpe": valid_loss_at_best_mpjpe,
+			"train_mpjpe_at_best_mpjpe": train_mpjpe_at_best_mpjpe * 100,
+
+			# Timing
+			"total_time_s": time() - start_time
 		}
+
 		results_path = os.path.join(CONFIG["paths"]["run_dir"], "results.json")
 		with open(results_path, "w") as f:
 			json.dump(results, f, indent=2)
 
-		# Build your metrics dict
-		metrics_dict = {
-			'best_valid_epoch':   float(best_valid_epoch),
-			'best_valid_loss':     best_valid_loss,
-			'train_loss_at_best':   best_train_loss,
-			'train_mpjpe_at_best':  best_train_mpjpe * 100,
-			'valid_mpjpe_at_best':  best_valid_mpjpe * 100,
-		}
-
 		# Log final evaluation metrics to SCALARS tab (step=0)
-		writer.add_scalar('Final/best_valid_epoch', best_valid_epoch, 0)
-		writer.add_scalar('Final/best_valid_loss', best_valid_loss, 0)
-		writer.add_scalar('Final/train_loss_at_best', best_train_loss, 0)
-		writer.add_scalar('Final/train_mpjpe_at_best', best_train_mpjpe * 100, 0)  # in cm
-		writer.add_scalar('Final/valid_mpjpe_at_best', best_valid_mpjpe * 100, 0)  # in cm
+		writer.add_scalar('Final/best_valid_loss_epoch', best_valid_loss_epoch, 0)
+		writer.add_scalar('Final/valid_loss_at_best_loss', best_valid_loss, 0)
+		writer.add_scalar('Final/valid_mpjpe_at_best_loss', valid_mpjpe_at_best_loss * 100, 0)
+
+		writer.add_scalar('Final/best_valid_mpjpe_epoch', best_valid_mpjpe_epoch, 0)
+		writer.add_scalar('Final/valid_mpjpe_at_best_mpjpe', best_valid_mpjpe * 100, 0)
+		writer.add_scalar('Final/valid_loss_at_best_mpjpe', valid_loss_at_best_mpjpe, 0)
 
 		writer.flush()
 		writer.close()
+
+		# Console Summary: Show best epochs and MPJPEs
+		print("\n========== FINAL SUMMARY ==========")
+		print(f"Best model by loss:   Epoch {best_valid_loss_epoch:03d} | Valid MPJPE: {valid_mpjpe_at_best_loss * 100:.2f} cm")
+		print(f"Best model by MPJPE:  Epoch {best_valid_mpjpe_epoch:03d} | Valid MPJPE: {best_valid_mpjpe * 100:.2f} cm")
+		print(f"Total training time:  {results['total_time_s'] / 60:.1f} minutes")
+		print("===================================\n")
 
 if __name__ == '__main__':
 	main()

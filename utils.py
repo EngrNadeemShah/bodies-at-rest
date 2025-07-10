@@ -322,7 +322,8 @@ def get_preprocessed_hdf5_path(filename):
 
 def save_checkpoint(path, epoch, model, optimizer,
                     train_valid_losses, best_valid_loss,
-                    scaler=None, scheduler=None):
+                    scaler=None, scheduler=None,
+                    best_valid_mpjpe=None):
     """
     path: where to write the .pth
     epoch:     current epoch
@@ -332,6 +333,8 @@ def save_checkpoint(path, epoch, model, optimizer,
     train_valid_losses: dict of lists for plotting/resume
     best_valid_loss:    float
     scaler:    amp GradScaler or None
+    scheduler: scheduler state dict or None
+    best_valid_mpjpe:   float
     """
     ckpt = {
         'epoch': epoch,
@@ -346,6 +349,9 @@ def save_checkpoint(path, epoch, model, optimizer,
 
     if scheduler is not None:
         ckpt['scheduler_state_dict'] = scheduler.state_dict()
+
+    if best_valid_mpjpe is not None:
+        ckpt['best_valid_mpjpe'] = best_valid_mpjpe
 
     torch.save(ckpt, path)
     print(f"Checkpoint saved to {path}")
