@@ -30,28 +30,28 @@ is_cuda_available = torch.cuda.is_available()
 device = torch.device("cuda" if is_cuda_available else "cpu")
 
 
-# # ——— Load Pre-computed GT standard‐deviations ———
-# stats_path = "/home/nashah/projects/bodies-at-rest/stats_train_labels_processed_straight_limbs.xlsx"
-# avg = pd.read_excel(stats_path, sheet_name="avg_straight_limbs", engine="openpyxl")
-# avg_std = torch.tensor(avg["std_dev"].values, dtype=torch.float32, device=device)
+# ——— Load Pre-computed GT standard‐deviations ———
+stats_path = "/home/nashah/projects/bodies-at-rest/stats_train_labels_processed_straight_limbs.xlsx"
+avg = pd.read_excel(stats_path, sheet_name="avg_straight_limbs", engine="openpyxl")
+avg_std = torch.tensor(avg["std_dev"].values, dtype=torch.float32, device=device)
 
-# # slice & reshape to match pred-tensor shapes
-# joints_std        = avg_std[  0:  72].reshape(1, 24, 3)   # 24 joints × (x,y,z)
-# betas_std         = avg_std[ 72:  82].reshape(1, 10)      # 10 shape coefs
-# transl_std        = avg_std[154: 157].reshape(1,  3)      # root translation (x,y,z)
+# slice & reshape to match pred-tensor shapes
+joints_std        = avg_std[  0:  72].reshape(1, 24, 3)   # 24 joints × (x,y,z)
+betas_std         = avg_std[ 72:  82].reshape(1, 10)      # 10 shape coefs
+transl_std        = avg_std[154: 157].reshape(1,  3)      # root translation (x,y,z)
 
-# # std_devs of your ground-truth axis-angle magnitudes.
-# global_orient_geo_std	= 0.149058
-# body_pose_geo_std		= 0.278674
+# std_devs of your ground-truth axis-angle magnitudes.
+global_orient_geo_std	= 0.149058
+body_pose_geo_std		= 0.278674
 
 
 # --- Loss Functions ---
-# def standardized_mse(pred, gt, std):
-# 	"""Mean Squared Error loss with standardization by std-dev.
-# 	Standardize each error by its empirical standard-deviation before squaring and averaging.
-# 	That way, every loss term lives in a roughly unit‐variance space and is directly comparable.
-# 	"""
-# 	return torch.mean(((pred - gt) / std)**2)
+def standardized_mse(pred, gt, std):
+	"""Mean Squared Error loss with standardization by std-dev.
+	Standardize each error by its empirical standard-deviation before squaring and averaging.
+	That way, every loss term lives in a roughly unit‐variance space and is directly comparable.
+	"""
+	return torch.mean(((pred - gt) / std)**2)
 
 # geodesic rotation loss on SO(3)
 def geodesic_loss(R_pred: torch.Tensor, R_gt: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
@@ -66,16 +66,16 @@ def geodesic_loss(R_pred: torch.Tensor, R_gt: torch.Tensor, eps: float = 1e-6) -
 	return theta.mean()
 
 # Loss functions for each output head
-criterion_joints	= nn.MSELoss()
-criterion_betas		= nn.MSELoss()
-criterion_transl	= nn.MSELoss()
-# criterion_joints = lambda p, g: standardized_mse(p, g, joints_std)
-# criterion_betas  = lambda p, g: standardized_mse(p, g, betas_std)
-# criterion_transl = lambda p, g: standardized_mse(p, g, transl_std)
+# criterion_joints	= nn.MSELoss()
+# criterion_betas		= nn.MSELoss()
+# criterion_transl	= nn.MSELoss()
+criterion_joints = lambda p, g: standardized_mse(p, g, joints_std)
+criterion_betas  = lambda p, g: standardized_mse(p, g, betas_std)
+criterion_transl = lambda p, g: standardized_mse(p, g, transl_std)
 
-# # divide each raw geodesic loss by its train‐set std‐dev
-# criterion_global_orient = lambda R_pred, R_gt: geodesic_loss(R_pred, R_gt) / global_orient_geo_std
-# criterion_body_pose     = lambda R_pred, R_gt: geodesic_loss(R_pred, R_gt) / body_pose_geo_std
+# divide each raw geodesic loss by its train‐set std‐dev
+criterion_global_orient = lambda R_pred, R_gt: geodesic_loss(R_pred, R_gt) / global_orient_geo_std
+criterion_body_pose     = lambda R_pred, R_gt: geodesic_loss(R_pred, R_gt) / body_pose_geo_std
 
 
 # Replace static w_* (weights for losses) scalars with learnable weights using homoscedastic uncertainty (log-variance) trick
@@ -156,14 +156,14 @@ def train(model, train_loader, device, smpl_preloader, CONFIG, adaptive_loss_wei
 		# Global orientation (axis-angle → Rotation matrix)
 		global_orient_rotMat_pred	= axis_angle_to_matrix(global_orient_aa_pred)	# (B, 3) -> (B, 3, 3)
 		global_orient_rotMat_gt		= axis_angle_to_matrix(global_orient_aa_gt)		# (B, 3) -> (B, 3, 3)
-		# global_orient_loss = criterion_global_orient(global_orient_rotMat_pred, global_orient_rotMat_gt)
-		global_orient_loss = geodesic_loss(global_orient_rotMat_pred, global_orient_rotMat_gt)
+		global_orient_loss = criterion_global_orient(global_orient_rotMat_pred, global_orient_rotMat_gt)
+		# global_orient_loss = geodesic_loss(global_orient_rotMat_pred, global_orient_rotMat_gt)
 
 		# Body pose (axis-angle → Rotation matrices)
 		body_pose_rotMat_pred = axis_angle_to_matrix(body_pose_aa_pred)	# (B, 23, 3) -> (B, 23, 3, 3)
 		body_pose_rotMat_gt   = axis_angle_to_matrix(body_pose_aa_gt)	# (B, 23, 3) -> (B, 23, 3, 3)
-		# body_pose_loss = criterion_body_pose(body_pose_rotMat_pred, body_pose_rotMat_gt)
-		body_pose_loss = geodesic_loss(body_pose_rotMat_pred, body_pose_rotMat_gt)
+		body_pose_loss = criterion_body_pose(body_pose_rotMat_pred, body_pose_rotMat_gt)
+		# body_pose_loss = geodesic_loss(body_pose_rotMat_pred, body_pose_rotMat_gt)
 
 		# pack losses in the fixed order matching log_vars:
 		# [ joints, betas, global_orient, body_pose, transl ]
@@ -260,14 +260,14 @@ def validate(model, valid_loader, device, smpl_preloader, CONFIG, adaptive_loss_
 			# Global orientation (axis-angle → Rotation matrix)
 			global_orient_rotMat_pred	= axis_angle_to_matrix(global_orient_aa_pred)	# (B, 3) -> (B, 3, 3)
 			global_orient_rotMat_gt		= axis_angle_to_matrix(global_orient_aa_gt)		# (B, 3) -> (B, 3, 3)
-			# global_orient_loss = criterion_global_orient(global_orient_rotMat_pred, global_orient_rotMat_gt)
-			global_orient_loss = geodesic_loss(global_orient_rotMat_pred, global_orient_rotMat_gt)
+			global_orient_loss = criterion_global_orient(global_orient_rotMat_pred, global_orient_rotMat_gt)
+			# global_orient_loss = geodesic_loss(global_orient_rotMat_pred, global_orient_rotMat_gt)
 
 			# Body pose (axis-angle → Rotation matrices)
 			body_pose_rotMat_pred = axis_angle_to_matrix(body_pose_aa_pred)	# (B, 23, 3) -> (B, 23, 3, 3)
 			body_pose_rotMat_gt   = axis_angle_to_matrix(body_pose_aa_gt)	# (B, 23, 3) -> (B, 23, 3, 3)
-			# body_pose_loss = criterion_body_pose(body_pose_rotMat_pred, body_pose_rotMat_gt)
-			body_pose_loss = geodesic_loss(body_pose_rotMat_pred, body_pose_rotMat_gt)
+			body_pose_loss = criterion_body_pose(body_pose_rotMat_pred, body_pose_rotMat_gt)
+			# body_pose_loss = geodesic_loss(body_pose_rotMat_pred, body_pose_rotMat_gt)
 
 			# pack losses in the fixed order matching log_vars:
 			# [ joints, betas, global_orient, body_pose, transl ]
@@ -439,9 +439,9 @@ def main():
 	# — adaptive weights for joint & SMPL losses —
 	adaptive_loss_weights = AdaptiveLoss().to(device)
 	# Initialize log_vars to sensible priors, e.g. if you want all wᵢ=1 except betas=0.1 at start:
-	init_ws = torch.tensor([1.0, 0.1, 1.0, 1.0, 1.0], device=device)
+	# init_ws = torch.tensor([1.0, 0.1, 1.0, 1.0, 1.0], device=device)
 	# we want exp(-log_var) = w  =>  log_var = -log(w)
-	adaptive_loss_weights.log_vars.data = -torch.log(init_ws)
+	# adaptive_loss_weights.log_vars.data = -torch.log(init_ws)
 
 	optimizer = AdamW(list(model.parameters()) + list(adaptive_loss_weights.parameters()),
         lr=CONFIG['optimizer']['lr_init'], weight_decay=CONFIG['optimizer']['weight_decay'])
