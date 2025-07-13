@@ -9,6 +9,7 @@ import scipy.stats as ss
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import h5py
+import torch.nn.functional as F
 mpl.rcParams['text.usetex'] = False  # Disable LaTeX rendering
 mpl.rcParams['font.family'] = 'DejaVu Sans'  # Set default font family
 mpl.use('Agg')
@@ -211,7 +212,7 @@ class PressurePoseDataset(Dataset):
 		return torch.from_numpy(input_x).to(torch.float32), torch.from_numpy(label_y).to(torch.float32)
 
 class HDF5Dataset(Dataset):
-    def __init__(self, hdf5_file_path, split='train', transform=None, verbose=False):
+    def __init__(self, hdf5_file_path, split='train', transform=None, resize_factor=1.0, verbose=False):
         """
         Args:
             hdf5_file_path (str): Path to the HDF5 file.
@@ -223,6 +224,7 @@ class HDF5Dataset(Dataset):
         self.split = split
         self.transform = transform
         self.verbose = verbose
+        self.resize_factor = resize_factor
         
         # Open the file to get keys
         with h5py.File(self.hdf5_file_path, 'r') as hdf5_file:
@@ -263,6 +265,11 @@ class HDF5Dataset(Dataset):
             label_data = hdf5_file[labels_path][idx]
             
             input_tensor = torch.tensor(input_data, dtype=torch.float32)
+            if self.resize_factor < 1.0:
+                input_tensor = F.interpolate(input_tensor.unsqueeze(0), 
+                                            scale_factor=self.resize_factor, 
+                                            mode='bilinear', align_corners=False).squeeze(0)
+
             label_tensor = torch.tensor(label_data, dtype=torch.float32)
             
             if self.transform:

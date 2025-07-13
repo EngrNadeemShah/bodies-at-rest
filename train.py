@@ -31,7 +31,7 @@ device = torch.device("cuda" if is_cuda_available else "cpu")
 
 
 # ——— Load Pre-computed GT standard‐deviations ———
-stats_path = "/home/nashah/projects/bodies-at-rest/stats_train_labels_processed_straight_limbs.xlsx"
+stats_path = "/home/nashah/projects/bodies-at-rest/stats/stats_train_labels_processed_straight_limbs.xlsx"
 avg = pd.read_excel(stats_path, sheet_name="avg_straight_limbs", engine="openpyxl")
 avg_std = torch.tensor(avg["std_dev"].values, dtype=torch.float32, device=device)
 
@@ -330,7 +330,8 @@ def main():
 		"training": {
 			"batch_size": 512,
 			"num_epochs": 150,
-			"use_relu": True
+			"use_relu": True,
+			"resize_factor": 0.75,	# 1.0 for no resizing, 0.5 for half size
 		},
 
 		"optimizer": {
@@ -362,6 +363,7 @@ def main():
 		"weight_decay": CONFIG["optimizer"]["weight_decay"],
 		"batch_size":   CONFIG["training"]["batch_size"],
 		"use_relu":     CONFIG["training"]["use_relu"],
+		"resize_factor":CONFIG["training"]["resize_factor"],
 	}
 
 	# Print the device information
@@ -418,8 +420,10 @@ def main():
 		mean=[26.201084, 11.778635, 11.731706],
 		std	=[41.360558, 27.982226, 8.824089])
 
-	train_dataset = HDF5Dataset(hdf5_file_path=hdf5_file_path, split='train', transform=transform)
-	valid_dataset = HDF5Dataset(hdf5_file_path=hdf5_file_path, split='val', transform=transform)
+	resize_factor = CONFIG['training']['resize_factor']
+
+	train_dataset = HDF5Dataset(hdf5_file_path=hdf5_file_path, split='train', transform=transform, resize_factor=resize_factor)
+	valid_dataset = HDF5Dataset(hdf5_file_path=hdf5_file_path, split='val', transform=transform, resize_factor=resize_factor)
 
 	train_loader = DataLoader(train_dataset, batch_size=CONFIG['training']['batch_size'], shuffle=True,	num_workers=CONFIG['dataloader']['train_workers'], pin_memory=CONFIG['dataloader']['pin_memory'], prefetch_factor=CONFIG['dataloader']['prefetch_train'], persistent_workers=CONFIG['dataloader']['persistent_workers_train'])
 	valid_loader = DataLoader(valid_dataset, batch_size=CONFIG['training']['batch_size'], shuffle=False,num_workers=CONFIG['dataloader']['valid_workers'], pin_memory=CONFIG['dataloader']['pin_memory'], prefetch_factor=CONFIG['dataloader']['prefetch_valid'], persistent_workers=CONFIG['dataloader']['persistent_workers_valid'])
@@ -429,8 +433,12 @@ def main():
 	model = PressureNet(in_channels=train_dataset.num_channels, use_relu=CONFIG['training']['use_relu']).to(device)
 
 	# Logging the model graph
+	orig_height, orig_width = 128, 54
+	new_height = int(orig_height * resize_factor)
+	new_width = int(orig_width * resize_factor)
+
 	dummy = torch.zeros(
-		(1, train_dataset.num_channels, 128, 54),
+		(1, train_dataset.num_channels, new_height, new_width),
 		device=device,
 		dtype=torch.float32)
 	writer.add_graph(model, (dummy,))
@@ -453,7 +461,7 @@ def main():
 		print("\nModel Summary:")
 		print(model)
 		print()
-		summary(model, input_size=(CONFIG['training']['batch_size'], train_dataset.num_channels, 128, 54), device=device.type)
+		summary(model, input_size=(CONFIG['training']['batch_size'], train_dataset.num_channels, new_height, new_width), device=device.type)
 
 
 	# 3. Load SMPL models
